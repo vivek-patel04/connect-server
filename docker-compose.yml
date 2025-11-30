@@ -1,0 +1,133 @@
+services:
+
+  auth_redis:
+    image: redis:8-alpine
+    container_name: auth_redis
+    ports:
+      - "6001:6379"
+    volumes:
+      - auth_redis_data:/data
+    networks:
+      - auth_network
+      - connect
+
+  auth_dev:
+    profiles:
+      - dev
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+      target: dev
+    container_name: auth_dev
+    image: auth_dev_image
+    env_file:
+      - ./auth-service/.env
+    ports:
+      - "4001:4001"
+    volumes:
+      - ./auth-service:/app
+      - auth_node_modules:/app/node_modules
+    networks:
+      - auth_network
+      - connect
+    depends_on:
+      - auth_redis
+
+  auth_prod:
+    profiles:
+      - production
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+      target: production
+    container_name: auth_prod
+    image: auth_prod_image
+    env_file:
+      - ./auth-service/.env
+    ports:
+      - "4001:4001"
+    networks:
+      - auth_network
+      - connect
+    depends_on:
+      - auth_redis
+
+  user_redis:
+    image: redis:8-alpine
+    container_name: user_redis
+    ports:
+      - "6002:6379"
+    volumes:
+      - user_redis_data:/data
+    networks:
+      - user_network
+      - connect
+ 
+  user_postgres:
+    image: postgres:18-alpine
+    container_name: user_postgres
+    env_file:
+      - ./user-service/.env
+    ports:
+      - "5002:5432"
+    volumes:
+      - user_postgres_data:/var/lib/postgresql/data
+    networks:
+      - user_network
+      - connect
+  
+  user_dev:
+    profiles:
+      - dev
+    build: 
+      context: ./user-service
+      dockerfile: Dockerfile
+      target: dev
+    container_name: user_dev
+    image: user_dev_image
+    env_file:
+      - ./user-service/.env
+    ports:
+      - "4002:4002"
+    volumes:
+      - ./user-service:/app
+      - user_node_modules:/app/node_modules
+    networks:
+      - user_network
+      - connect
+    depends_on:
+      - user_redis
+      - user_postgres
+    
+  user_prod:
+    profiles:
+      - production
+    build: 
+      context: ./user-service
+      dockerfile: Dockerfile
+      target: production
+    container_name: user_prod
+    image: user_prod_image
+    env_file:
+      - ./user-service/.env
+    ports:
+      - "4002:4002"
+    networks:
+      - user_network
+      - connect
+    depends_on:
+      - user_redis
+      - user_postgres
+
+
+networks:
+  auth_network:
+  user_network:
+  connect:
+
+volumes:
+  auth_redis_data:
+  auth_node_modules:
+  user_redis_data:
+  user_postgres_data:
+  user_node_modules:

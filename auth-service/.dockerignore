@@ -1,0 +1,10 @@
+node_modules
+dist
+.dockerignore
+.env
+.env.example
+.gitignore
+.git
+Dockerfile
+private.key
+public.key

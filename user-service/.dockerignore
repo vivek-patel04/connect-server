@@ -1,0 +1,9 @@
+node_modules
+dist
+src/generated/prisma
+.dockerignore
+.env
+.env.example
+.gitignore
+.prettierrc
+Dockerfile

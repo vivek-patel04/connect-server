@@ -1,0 +1,27 @@
+syntax= "proto3";
+
+package authUserCommunication;
+
+service AuthUserCommunication {
+    rpc userRegistration (userRegistrationRequest) returns (userRegistrationResponse);
+    rpc getUserIdPass (getUserIdPassRequest) returns (getUserIdPassResponse);
+}
+
+message userRegistrationRequest{
+    string name=1;
+    string email=2;
+    string hashedPassword=3;
+}
+
+message userRegistrationResponse{
+   string userID=1;
+}
+
+message getUserIdPassRequest{
+    string email=1;
+}
+
+message getUserIdPassResponse{
+    string userID=1;
+    string hashedPassword=2;
+}

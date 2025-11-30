@@ -1,0 +1,7 @@
+node_modules
+dist
+log
+.env
+src/generated/prisma
+private.key
+public.key

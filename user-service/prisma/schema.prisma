@@ -1,0 +1,149 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                 String        @id @default(uuid())
+  name               String
+  email              String        @unique
+  password           String
+  connectionSent     Connection[]  @relation(name: "sendConnection")
+  connectionReceived Connection[]  @relation(name: "receiveConnection")
+  user               Connected[]   @relation(name: "user")
+  conection          Connected[]   @relation(name: "userConnection")
+  personalData       PersonalData?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([name])
+}
+
+model Connection {
+  id         String   @id @default(uuid())
+  senderID   String
+  receiverID String
+  pair       String   @unique
+  status     Status   @default(pending)
+  sender     User     @relation(fields: [senderID], references: [id], onDelete: Cascade, name: "sendConnection")
+  receiver   User     @relation(fields: [receiverID], references: [id], onDelete: Cascade, name: "receiveConnection")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([senderID, receiverID])
+  @@index([senderID])
+  @@index([receiverID])
+}
+
+enum Status {
+  pending
+  accepted
+}
+
+model Connected {
+  id               String   @id @default(uuid())
+  userID           String
+  connectionUserID String
+  user             User     @relation(fields: [userID], references: [id], onDelete: Cascade, name: "user")
+  connectionUser   User     @relation(fields: [connectionUserID], references: [id], onDelete: Cascade, name: "userConnection")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([userID, connectionUserID])
+  @@index([userID])
+  @@index([connectionUserID])
+}
+
+model PersonalData {
+  id                 String           @id @default(uuid())
+  dob                DateTime?
+  gender             Gender?
+  cloudinaryPublicID String           @default("USER_PROFILE_PICTURE/default-profile-picture")
+  profilePictureURL  String           @default("https://res.cloudinary.com/dlxi00sgn/image/upload/v1764397437/USER_PROFILE_PICTURE/default-profile-picture.png")
+  thumbnailURL       String           @default("https://res.cloudinary.com/dlxi00sgn/image/upload/v1764417754/USER_PROFILE_PICTURE/default-profile-picture_08c102.jpg")
+  hometown           String?
+  languages          String[]         @default([])
+  interests          String[]         @default([])
+  workExperience     WorkExperience[]
+  education          Education[]
+  skills             Skill[]
+  awards             Award[]
+  userID             String           @unique
+  user               User             @relation(fields: [userID], references: [id], onDelete: Cascade)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([userID])
+}
+
+enum Gender {
+  male
+  female
+}
+
+model WorkExperience {
+  id             String       @id @default(uuid())
+  organization   String
+  role           String
+  location       String
+  description    String?
+  startDate      DateTime
+  endDate        DateTime?
+  personalDataID String
+  personalData   PersonalData @relation(fields: [personalDataID], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([personalDataID])
+}
+
+model Education {
+  id             String        @id @default(uuid())
+  institute      String
+  instituteType  InstituteType
+  description    String?
+  startDate      DateTime
+  endDate        DateTime?
+  personalDataID String
+  personalData   PersonalData  @relation(fields: [personalDataID], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([personalDataID])
+}
+
+enum InstituteType {
+  school
+  highSchool
+  university
+  bootcamp
+  other
+}
+
+model Skill {
+  id             String       @id @default(uuid())
+  skillName      String
+  description    String?
+  personalDataID String
+  personalData   PersonalData @relation(fields: [personalDataID], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([personalDataID])
+}
+
+model Award {
+  id             String       @id @default(uuid())
+  title          String
+  description    String?
+  personalDataID String
+  personalData   PersonalData @relation(fields: [personalDataID], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([personalDataID])
+}
