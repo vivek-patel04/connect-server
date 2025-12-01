@@ -1,7 +1,7 @@
 
 ##DEVELOPMENT##
 
-FROM node:24 AS dev
+FROM node:24-slim AS dev
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ CMD ["npm", "run", "dev"]
 
 ##BUILD FOR PRODUCTION##
 
-FROM node:24 AS build
+FROM node:24-slim AS build
 
 WORKDIR /app
 
