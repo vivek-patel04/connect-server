@@ -6,7 +6,7 @@ dotenv.config();
 export const port = Number(process.env.PORT as string);
 export const nodeEnv = process.env.NODE_ENV as string;
 export const publicKey = process.env.PUBLIC_KEY as string;
-export const authUserGrpcKey = process.env.AUTH_USER_GRPC_SECRET as string;
+export const grpcSecret = process.env.GRPC_SECRET as string;
 export const cloudinaryName = process.env.CLOUDINARY_NAME as string;
 export const cloudinaryApiKey = process.env.CLOUDINARY_API_KEY as string;
 export const cloudinaryApiSecret = process.env.CLOUDINARY_API_SECRET as string;
@@ -21,7 +21,7 @@ const envSchema = z.object({
     NODE_ENV: z.enum(["development", "production"]),
     DATABASE_URL: z.string().min(1),
     PUBLIC_KEY: z.string().min(1),
-    AUTH_USER_GRPC_SECRET: z.string().min(1),
+    GRPC_SECRET: z.string().min(1),
     CLOUDINARY_NAME: z.string().min(1),
     CLOUDINARY_API_KEY: z.string().min(1),
     CLOUDINARY_API_SECRET: z.string().min(1),

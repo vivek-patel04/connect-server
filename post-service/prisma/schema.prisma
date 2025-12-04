@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Post {
+  id        String    @id @default(uuid())
+  post      String
+  userID    String
+  like      Like[]
+  comment   Comment[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userID])
+  @@index([createdAt])
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  postID    String
+  userID    String
+  post      Post     @relation(fields: [postID], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([postID, userID])
+  @@index([userID])
+  @@index([postID])
+  @@index([postID, createdAt])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  comment   String
+  postID    String
+  userID    String
+  post      Post     @relation(fields: [postID], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userID])
+  @@index([postID])
+  @@index([postID, createdAt])
+}

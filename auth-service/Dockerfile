@@ -1,11 +1,10 @@
-
 ##DEVELOPMENT##
 
-FROM node:24-slim AS dev
+FROM node:24-alpine AS dev
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y protobuf-compiler
+RUN apk add --no-cache protobuf
 
 COPY package*.json ./
 

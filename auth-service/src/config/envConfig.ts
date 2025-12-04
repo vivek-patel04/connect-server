@@ -5,7 +5,7 @@ dotenv.config();
 
 export const port = Number(process.env.PORT as string);
 export const nodeEnv = process.env.NODE_ENV as string;
-export const authUserGrpcKey = process.env.AUTH_USER_GRPC_SECRET as string;
+export const grpcSecret = process.env.GRPC_SECRET as string;
 export const grpcCallTTL = Number(process.env.GRPC_CALL_TTL as string);
 export const publicKey = process.env.PUBLIC_KEY as string;
 export const privateKey = process.env.PRIVATE_KEY as string;
@@ -17,7 +17,7 @@ export const userServiceGrpcPort = Number(process.env.USER_SERVICE_GRPC_PORT as 
 const envSchema = z.object({
     PORT: z.string().regex(/^[0-9]+$/),
     NODE_ENV: z.enum(["development", "production"]),
-    AUTH_USER_GRPC_SECRET: z.string().min(1),
+    GRPC_SECRET: z.string().min(1),
     GRPC_CALL_TTL: z.string().regex(/^[0-9]+$/),
     REDIS_URL: z.string().min(1),
     PUBLIC_KEY: z.string().min(1),

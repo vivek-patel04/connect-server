@@ -1,5 +1,4 @@
 services:
-
   auth_redis:
     image: redis:8-alpine
     container_name: auth_redis
@@ -62,7 +61,7 @@ services:
     networks:
       - user_network
       - connect
- 
+
   user_postgres:
     image: postgres:18-alpine
     container_name: user_postgres
@@ -75,11 +74,11 @@ services:
     networks:
       - user_network
       - connect
-  
+
   user_dev:
     profiles:
       - dev
-    build: 
+    build:
       context: ./user-service
       dockerfile: Dockerfile
       target: dev
@@ -98,11 +97,11 @@ services:
     depends_on:
       - user_redis
       - user_postgres
-    
+
   user_prod:
     profiles:
       - production
-    build: 
+    build:
       context: ./user-service
       dockerfile: Dockerfile
       target: production
@@ -119,10 +118,76 @@ services:
       - user_redis
       - user_postgres
 
+  post_redis:
+    image: redis:8-alpine
+    container_name: post_redis
+    ports:
+      - "6003:6379"
+    volumes:
+      - post_redis_data:/data
+    networks:
+      - post_network
+      - connect
 
+  post_postgres:
+    image: postgres:18-alpine
+    container_name: post_postgres
+    env_file:
+      - ./post-service/.env
+    ports:
+      - "5003:5432"
+    volumes:
+      - post_postgres_data:/var/lib/postgresql/data
+    networks:
+      - post_network
+      - connect
+
+  post_dev:
+    profiles:
+      - dev
+    build:
+      context: ./post-service
+      dockerfile: Dockerfile
+      target: dev
+    container_name: post_dev
+    image: post_dev_image
+    env_file:
+      - ./post-service/.env
+    ports:
+      - "4003:4003"
+    volumes:
+      - ./post-service:/app
+      - post_node_modules:/app/node_modules
+    networks:
+      - post_network
+      - connect
+    depends_on:
+      - post_redis
+      - post_postgres
+
+  post_prod:
+    profiles:
+      - production
+    build:
+      context: ./post-service
+      dockerfile: Dockerfile
+      target: production
+    container_name: post_prod
+    image: post_prod_image
+    env_file:
+      - ./user-service/.env
+    ports:
+      - "4003:4003"
+    networks:
+      - post_network
+      - connect
+    depends_on:
+      - post_redis
+      - post_postgres
 networks:
   auth_network:
   user_network:
+  post_network:
   connect:
 
 volumes:
@@ -131,3 +196,6 @@ volumes:
   user_redis_data:
   user_postgres_data:
   user_node_modules:
+  post_redis_data:
+  post_postgres_data:
+  post_node_modules:

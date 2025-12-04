@@ -1,0 +1,67 @@
+syntax= "proto3";
+
+package userCommunication;
+
+service UserCommunication {
+    //auth service
+    rpc userRegistration (userRegistrationRequest) returns (userRegistrationResponse);
+    rpc getUserIdPass (getUserIdPassRequest) returns (getUserIdPassResponse);
+
+    //common service
+    rpc getUsersByUserIDs (getUsersByUserIDsRequest) returns (getUsersByUserIDsResponse);
+    rpc getUserByUserID (getUserByUserIDRequest) returns (getUserByUserIDResponse);
+    rpc getConnectionUserIDs (getConnectionUserIDsRequest) returns (getConnectionUserIDsResponse);
+}
+
+//auth
+message userRegistrationRequest{
+    string name=1;
+    string email=2;
+    string hashedPassword=3;
+}
+
+message userRegistrationResponse{
+   string userID=1;
+}
+
+message getUserIdPassRequest{
+    string email=1;
+}
+
+message getUserIdPassResponse{
+    string userID=1;
+    string hashedPassword=2;
+}
+
+//common
+
+message User {
+    string id=1;
+    string name=2;
+    string thumbnailURL=3;
+
+}
+
+message getUsersByUserIDsRequest {
+    repeated  string userIDs=1;
+}
+
+message getUsersByUserIDsResponse {
+    repeated User users=1;
+}
+
+message getUserByUserIDRequest {
+    string userID=1;
+}
+
+message getUserByUserIDResponse {
+    User user=1;
+}
+
+message getConnectionUserIDsRequest {
+    string userID=1;
+}
+
+message getConnectionUserIDsResponse {
+    repeated string userIDs=1;
+}
