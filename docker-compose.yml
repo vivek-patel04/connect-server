@@ -1,13 +1,35 @@
 services:
-  auth_redis:
-    image: redis:8-alpine
-    container_name: auth_redis
+  nginx:
+    image: nginx:alpine
+    container_name: api-gateway-nginx
+    restart: always
     ports:
-      - "6001:6379"
+      - "8080:80"         
     volumes:
-      - auth_redis_data:/data
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - auth_dev
+      - user_dev
+      - post_dev
     networks:
-      - auth_network
+      - connect
+
+  connect_redis:
+    image: redis:8-alpine
+    container_name: connect_redis
+    volumes:
+      - connect_redis_data:/data
+    networks:
+      - connect
+
+  connect_postgres:
+    image: postgres:18-alpine
+    container_name: connect_postgres
+    env_file:
+      - ./common-env/.env
+    volumes:
+      - connect_postgres_data:/var/lib/postgresql/data
+    networks:
       - connect
 
   auth_dev:
@@ -21,16 +43,13 @@ services:
     image: auth_dev_image
     env_file:
       - ./auth-service/.env
-    ports:
-      - "4001:4001"
     volumes:
       - ./auth-service:/app
       - auth_node_modules:/app/node_modules
     networks:
-      - auth_network
       - connect
     depends_on:
-      - auth_redis
+      - connect_redis
 
   auth_prod:
     profiles:
@@ -43,37 +62,10 @@ services:
     image: auth_prod_image
     env_file:
       - ./auth-service/.env
-    ports:
-      - "4001:4001"
     networks:
-      - auth_network
       - connect
     depends_on:
-      - auth_redis
-
-  user_redis:
-    image: redis:8-alpine
-    container_name: user_redis
-    ports:
-      - "6002:6379"
-    volumes:
-      - user_redis_data:/data
-    networks:
-      - user_network
-      - connect
-
-  user_postgres:
-    image: postgres:18-alpine
-    container_name: user_postgres
-    env_file:
-      - ./user-service/.env
-    ports:
-      - "5002:5432"
-    volumes:
-      - user_postgres_data:/var/lib/postgresql/data
-    networks:
-      - user_network
-      - connect
+      - connect_redis
 
   user_dev:
     profiles:
@@ -86,17 +78,14 @@ services:
     image: user_dev_image
     env_file:
       - ./user-service/.env
-    ports:
-      - "4002:4002"
     volumes:
       - ./user-service:/app
       - user_node_modules:/app/node_modules
     networks:
-      - user_network
       - connect
     depends_on:
-      - user_redis
-      - user_postgres
+      - connect_redis
+      - connect_postgres
 
   user_prod:
     profiles:
@@ -109,38 +98,11 @@ services:
     image: user_prod_image
     env_file:
       - ./user-service/.env
-    ports:
-      - "4002:4002"
     networks:
-      - user_network
       - connect
     depends_on:
-      - user_redis
-      - user_postgres
-
-  post_redis:
-    image: redis:8-alpine
-    container_name: post_redis
-    ports:
-      - "6003:6379"
-    volumes:
-      - post_redis_data:/data
-    networks:
-      - post_network
-      - connect
-
-  post_postgres:
-    image: postgres:18-alpine
-    container_name: post_postgres
-    env_file:
-      - ./post-service/.env
-    ports:
-      - "5003:5432"
-    volumes:
-      - post_postgres_data:/var/lib/postgresql/data
-    networks:
-      - post_network
-      - connect
+      - connect_redis
+      - connect_postgres
 
   post_dev:
     profiles:
@@ -153,17 +115,14 @@ services:
     image: post_dev_image
     env_file:
       - ./post-service/.env
-    ports:
-      - "4003:4003"
     volumes:
       - ./post-service:/app
       - post_node_modules:/app/node_modules
     networks:
-      - post_network
       - connect
     depends_on:
-      - post_redis
-      - post_postgres
+      - connect_redis
+      - connect_postgres
 
   post_prod:
     profiles:
@@ -176,26 +135,18 @@ services:
     image: post_prod_image
     env_file:
       - ./user-service/.env
-    ports:
-      - "4003:4003"
     networks:
-      - post_network
       - connect
     depends_on:
-      - post_redis
-      - post_postgres
+      - connect_redis
+      - connect_postgres
+      
 networks:
-  auth_network:
-  user_network:
-  post_network:
   connect:
 
 volumes:
-  auth_redis_data:
+  connect_redis_data:
+  connect_postgres_data:
   auth_node_modules:
-  user_redis_data:
-  user_postgres_data:
   user_node_modules:
-  post_redis_data:
-  post_postgres_data:
   post_node_modules:

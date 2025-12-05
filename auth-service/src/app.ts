@@ -10,7 +10,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 //ROUTES
-app.use("/api/auth", authRoutes);
+app.use("/", authRoutes);
 
 //ERROR HANDLER FOR INVALID PATH
 app.use("/", (req, res) => {

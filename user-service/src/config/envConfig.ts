@@ -25,9 +25,6 @@ const envSchema = z.object({
     CLOUDINARY_NAME: z.string().min(1),
     CLOUDINARY_API_KEY: z.string().min(1),
     CLOUDINARY_API_SECRET: z.string().min(1),
-    POSTGRES_USER: z.string().min(1),
-    POSTGRES_PASSWORD: z.string().min(1),
-    POSTGRES_DB: z.string().min(1),
     REDIS_URL: z.string().min(1),
 });
 

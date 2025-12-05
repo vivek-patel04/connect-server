@@ -21,9 +21,6 @@ const envSchema = z.object({
     PUBLIC_KEY: z.string().min(1),
     USER_SERVICE_DOCKER_CONTAINER_NAME: z.string().min(1),
     USER_SERVICE_GRPC_PORT: z.string().regex(/^[0-9]+$/),
-    POSTGRES_USER: z.string().min(1),
-    POSTGRES_PASSWORD: z.string().min(1),
-    POSTGRES_DB: z.string().min(1),
     DATABASE_URL: z.string().min(1),
 });
 
