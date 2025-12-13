@@ -24,6 +24,7 @@ CREATE TABLE "Connection" (
     "id" TEXT NOT NULL,
     "senderID" TEXT NOT NULL,
     "receiverID" TEXT NOT NULL,
+    "pair" TEXT NOT NULL,
     "status" "Status" NOT NULL DEFAULT 'pending',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -32,11 +33,24 @@ CREATE TABLE "Connection" (
 );
 
 -- CreateTable
+CREATE TABLE "Connected" (
+    "id" TEXT NOT NULL,
+    "userID" TEXT NOT NULL,
+    "connectionUserID" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Connected_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "PersonalData" (
     "id" TEXT NOT NULL,
-    "dob" TIMESTAMP(3),
+    "dob" TEXT,
     "gender" "Gender",
-    "profilePhoto" TEXT DEFAULT 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png',
+    "cloudinaryPublicID" TEXT NOT NULL DEFAULT 'USER_PROFILE_PICTURE/default-profile-picture',
+    "profilePictureURL" TEXT NOT NULL DEFAULT 'https://res.cloudinary.com/dlxi00sgn/image/upload/v1764397437/USER_PROFILE_PICTURE/default-profile-picture.png',
+    "thumbnailURL" TEXT NOT NULL DEFAULT 'https://res.cloudinary.com/dlxi00sgn/image/upload/v1764417754/USER_PROFILE_PICTURE/default-profile-picture_08c102.jpg',
     "hometown" TEXT,
     "languages" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "interests" TEXT[] DEFAULT ARRAY[]::TEXT[],
@@ -54,8 +68,8 @@ CREATE TABLE "WorkExperience" (
     "role" TEXT NOT NULL,
     "location" TEXT NOT NULL,
     "description" TEXT,
-    "startDate" TIMESTAMP(3) NOT NULL,
-    "endDate" TIMESTAMP(3),
+    "startDate" TEXT NOT NULL,
+    "endDate" TEXT,
     "personalDataID" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -68,10 +82,9 @@ CREATE TABLE "Education" (
     "id" TEXT NOT NULL,
     "institute" TEXT NOT NULL,
     "instituteType" "InstituteType" NOT NULL,
-    "location" TEXT NOT NULL,
     "description" TEXT,
-    "startDate" TIMESTAMP(3) NOT NULL,
-    "endDate" TIMESTAMP(3),
+    "startDate" TEXT NOT NULL,
+    "endDate" TEXT,
     "personalDataID" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -83,7 +96,7 @@ CREATE TABLE "Education" (
 CREATE TABLE "Skill" (
     "id" TEXT NOT NULL,
     "skillName" TEXT NOT NULL,
-    "description" TEXT NOT NULL,
+    "description" TEXT,
     "personalDataID" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -110,13 +123,25 @@ CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 CREATE INDEX "User_name_idx" ON "User"("name");
 
 -- CreateIndex
-CREATE INDEX "Connection_senderID_status_idx" ON "Connection"("senderID", "status");
+CREATE UNIQUE INDEX "Connection_pair_key" ON "Connection"("pair");
 
 -- CreateIndex
-CREATE INDEX "Connection_receiverID_status_idx" ON "Connection"("receiverID", "status");
+CREATE INDEX "Connection_senderID_idx" ON "Connection"("senderID");
+
+-- CreateIndex
+CREATE INDEX "Connection_receiverID_idx" ON "Connection"("receiverID");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Connection_senderID_receiverID_key" ON "Connection"("senderID", "receiverID");
+
+-- CreateIndex
+CREATE INDEX "Connected_userID_idx" ON "Connected"("userID");
+
+-- CreateIndex
+CREATE INDEX "Connected_connectionUserID_idx" ON "Connected"("connectionUserID");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Connected_userID_connectionUserID_key" ON "Connected"("userID", "connectionUserID");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "PersonalData_userID_key" ON "PersonalData"("userID");
@@ -141,6 +166,12 @@ ALTER TABLE "Connection" ADD CONSTRAINT "Connection_senderID_fkey" FOREIGN KEY (
 
 -- AddForeignKey
 ALTER TABLE "Connection" ADD CONSTRAINT "Connection_receiverID_fkey" FOREIGN KEY ("receiverID") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Connected" ADD CONSTRAINT "Connected_userID_fkey" FOREIGN KEY ("userID") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Connected" ADD CONSTRAINT "Connected_connectionUserID_fkey" FOREIGN KEY ("connectionUserID") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "PersonalData" ADD CONSTRAINT "PersonalData_userID_fkey" FOREIGN KEY ("userID") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

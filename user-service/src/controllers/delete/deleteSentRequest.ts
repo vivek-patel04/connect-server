@@ -18,9 +18,6 @@ export const deleteSentRequest = async (req: Request, res: Response, next: NextF
 
         if (count.count === 0) return next(new BadResponse("Connection request not exist", 404));
 
-        //RESPONSE TO CLIENT
-        res.status(200).json({ success: true });
-
         //REDIS CLEAN UP
         const pipeline = redis.pipeline();
         pipeline.del(`userReceivedConnectionCount:${receiverUserID}`);
@@ -29,6 +26,8 @@ export const deleteSentRequest = async (req: Request, res: Response, next: NextF
         pipeline.del(`userSentConnection:${loggedinUserID}`);
         pipeline.del(`userSuggestion:${receiverUserID}`);
         pipeline.del(`userSuggestion:${loggedinUserID}`);
+        pipeline.del(`userRelation${loggedinUserID}:${receiverUserID}`);
+        pipeline.del(`userRelation${receiverUserID}:${loggedinUserID}`);
 
         const pipelineResponse = await pipeline.exec().catch(error => {
             logger.warn("Failed to execute delete user connections in redis (deleteSentRequest)", { error });
@@ -42,6 +41,9 @@ export const deleteSentRequest = async (req: Request, res: Response, next: NextF
                 }
             });
         }
+
+        //RESPONSE TO CLIENT
+        return res.status(200).json({ success: true });
     } catch (error: any) {
         return next(new BadResponse("Internal Server Error", 500));
     }

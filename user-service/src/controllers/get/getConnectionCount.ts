@@ -32,7 +32,7 @@ export const connectionCount = async (req: Request, res: Response, next: NextFun
 
         count = Number(count) || 0;
 
-        return res.status(200).json({ success: true, ConnectionCount: count });
+        return res.status(200).json({ success: true, connectionCount: count });
     } catch (error) {
         logger.error("Error on get connection count", { error });
         return next(new BadResponse("Internal server error", 500));

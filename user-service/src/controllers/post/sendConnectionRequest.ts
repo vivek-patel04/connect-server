@@ -25,9 +25,6 @@ export const sendConnection = async (req: Request, res: Response, next: NextFunc
             data: { senderID: senderUserID, receiverID: receiverUserID, pair },
         });
 
-        //RESPONSE TO CLIENT
-        res.status(200).json({ success: true });
-
         //REDIS CLEAN UP
         const pipeline = redis.pipeline();
 
@@ -37,6 +34,8 @@ export const sendConnection = async (req: Request, res: Response, next: NextFunc
         pipeline.del(`userSentConnection:${senderUserID}`);
         pipeline.del(`userSuggestion:${senderUserID}`);
         pipeline.del(`userSuggestion:${receiverUserID}`);
+        pipeline.del(`userRelation${receiverUserID}:${senderUserID}`);
+        pipeline.del(`userRelation${senderUserID}:${receiverUserID}`);
 
         const pipelineResponse = await pipeline.exec().catch(error => {
             logger.warn("Failed to execute delete user connections in redis (sendConnectionRequest)", { error });
@@ -50,6 +49,9 @@ export const sendConnection = async (req: Request, res: Response, next: NextFunc
                 }
             });
         }
+
+        //RESPONSE TO CLIENT
+        return res.status(200).json({ success: true });
     } catch (error: any) {
         if (error.code === "P2002") {
             return next(new BadResponse("Request or connection already exist", 400));

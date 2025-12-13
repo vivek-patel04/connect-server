@@ -60,7 +60,7 @@ model Connected {
 
 model PersonalData {
   id                 String           @id @default(uuid())
-  dob                DateTime?
+  dob                String?
   gender             Gender?
   cloudinaryPublicID String           @default("USER_PROFILE_PICTURE/default-profile-picture")
   profilePictureURL  String           @default("https://res.cloudinary.com/dlxi00sgn/image/upload/v1764397437/USER_PROFILE_PICTURE/default-profile-picture.png")
@@ -91,8 +91,8 @@ model WorkExperience {
   role           String
   location       String
   description    String?
-  startDate      DateTime
-  endDate        DateTime?
+  startDate      String
+  endDate        String?
   personalDataID String
   personalData   PersonalData @relation(fields: [personalDataID], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
@@ -106,8 +106,8 @@ model Education {
   institute      String
   instituteType  InstituteType
   description    String?
-  startDate      DateTime
-  endDate        DateTime?
+  startDate      String
+  endDate        String?
   personalDataID String
   personalData   PersonalData  @relation(fields: [personalDataID], references: [id], onDelete: Cascade)
   createdAt      DateTime      @default(now())

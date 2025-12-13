@@ -18,9 +18,6 @@ export const rejectConnection = async (req: Request, res: Response, next: NextFu
 
         if (count.count === 0) return next(new BadResponse("Connection request not exist", 404));
 
-        //RESPONSE TO CLIENT
-        res.status(200).json({ success: true });
-
         //REDIS CLEAN UP
         const pipeline = redis.pipeline();
         pipeline.del(`userReceivedConnectionCount:${loggedinUserID}`);
@@ -29,6 +26,8 @@ export const rejectConnection = async (req: Request, res: Response, next: NextFu
         pipeline.del(`userSentConnection:${senderUserID}`);
         pipeline.del(`userSuggestion:${loggedinUserID}`);
         pipeline.del(`userSuggestion:${senderUserID}`);
+        pipeline.del(`userRelation${loggedinUserID}:${senderUserID}`);
+        pipeline.del(`userRelation${senderUserID}:${loggedinUserID}`);
 
         const pipelineResponse = await pipeline.exec().catch(error => {
             logger.warn("Failed to execute delete user connections in redis (rejectConnectionRequest)", { error });
@@ -42,6 +41,9 @@ export const rejectConnection = async (req: Request, res: Response, next: NextFu
                 }
             });
         }
+
+        //RESPONSE TO CLIENT
+        return res.status(200).json({ success: true });
     } catch (error: any) {
         if (error.code === "P2025") {
             return next(new BadResponse("Connection request not exist", 400));

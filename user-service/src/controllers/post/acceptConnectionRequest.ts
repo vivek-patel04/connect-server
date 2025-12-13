@@ -32,9 +32,6 @@ export const acceptConnection = async (req: Request, res: Response, next: NextFu
             });
         });
 
-        //RESPONSE TO CLIENT
-        res.status(200).json({ success: true });
-
         //REDIS CLEAN UP
         const pipeline = redis.pipeline();
         pipeline.del(`userConnectionCount:${loggedinUserID}`);
@@ -47,6 +44,8 @@ export const acceptConnection = async (req: Request, res: Response, next: NextFu
         pipeline.del(`userSentConnection:${senderUserID}`);
         pipeline.del(`userSuggestion:${senderUserID}`);
         pipeline.del(`userSuggestion:${loggedinUserID}`);
+        pipeline.del(`userRelation${loggedinUserID}:${senderUserID}`);
+        pipeline.del(`userRelation${senderUserID}:${loggedinUserID}`);
 
         const pipelineResponse = await pipeline.exec().catch(error => {
             logger.warn("Failed to execute delete user connections in redis (acceptConnectionRequest)", { error });
@@ -60,6 +59,9 @@ export const acceptConnection = async (req: Request, res: Response, next: NextFu
                 }
             });
         }
+
+        //RESPONSE TO CLIENT
+        return res.status(200).json({ success: true });
     } catch (error) {
         if (error instanceof BadResponse) {
             return next(error);

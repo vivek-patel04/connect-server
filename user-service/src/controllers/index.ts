@@ -6,6 +6,7 @@ export { deleteSentRequest } from "./delete/deleteSentRequest.js";
 export { deleteSkill } from "./delete/deleteSkill.js";
 export { deleteWorkExperience } from "./delete/deleteWorkExperience.js";
 
+export { connectionRelation } from "./get/connectionRelation.js";
 export { connection } from "./get/getConnection.js";
 export { connectionCount } from "./get/getConnectionCount.js";
 export { receivedConnectionRequest } from "./get/getReceivedConnection.js";

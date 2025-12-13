@@ -35,9 +35,6 @@ export const deleteConnection = async (req: Request, res: Response, next: NextFu
 
         if (deleteCount.count === 0) return next(new BadResponse("No accepted connection exists between these users", 404));
 
-        //RESPONSE TO CLIENT
-        res.status(200).json({ success: true });
-
         //REDIS CLEAN UP
         const pipeline = redis.pipeline();
 
@@ -47,6 +44,8 @@ export const deleteConnection = async (req: Request, res: Response, next: NextFu
         pipeline.del(`userConnection:${deleteUserID}`);
         pipeline.del(`userSuggestion:${loggedinUserID}`);
         pipeline.del(`userSuggestion:${deleteUserID}`);
+        pipeline.del(`userRelation${loggedinUserID}:${deleteUserID}`);
+        pipeline.del(`userRelation${deleteUserID}:${loggedinUserID}`);
 
         const pipelineResponse = await pipeline.exec().catch(error => {
             logger.warn("Failed to execute delete user connections in redis (deleteConnection)", { error });
@@ -60,6 +59,9 @@ export const deleteConnection = async (req: Request, res: Response, next: NextFu
                 }
             });
         }
+
+        //RESPONSE TO CLIENT
+        return res.status(200).json({ success: true });
     } catch (error: any) {
         return next(new BadResponse("Internal Server Error", 500));
     }

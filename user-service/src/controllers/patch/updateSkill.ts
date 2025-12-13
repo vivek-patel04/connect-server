@@ -19,11 +19,11 @@ export const updateSkill = async (req: Request, res: Response, next: NextFunctio
             select: { skills: true },
         });
 
-        res.status(200).json({ success: true, updatedSkills });
-
         await redis.del(`userProfile:${userID}`).catch(error => {
             logger.warn("Failed to delete userProfile cache", { error });
         });
+
+        return res.status(200).json({ success: true, updatedSkills });
     } catch (error: any) {
         if (error.code === "P2025") return next(new BadResponse("Invalid ID or resource not found", 404));
 
