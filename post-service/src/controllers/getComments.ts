@@ -10,57 +10,65 @@ export const getComments = async (req: Request, res: Response, next: NextFunctio
     //base/api/post/like/users/:postID?start=1
 
     try {
-        const postID = req.cleanedParams.postID as string;
-        const start = req.cleanedQuery.start as number;
-        const end = start + 9;
+        const postID = req.cleanedParams.postID!;
+        const viewerUserID = req.user?.userID!;
+        const cursor = req.cleanedCursor!;
+        const take = 15;
 
         //FETCH CACHED DATA FROM REDIS
-        let cachedComments;
-        let cachedCommentCount;
-        try {
-            const cachedData = await redis.get(`CommentOnPost:${postID}`);
-            const cachedCount = await redis.get(`CommentCountOnPost:${postID}`);
+        const isPageOne = cursor.id === "ffffffff-ffff-ffff-ffff-ffffffffffff" && cursor.createdAt > new Date().toISOString();
 
-            if (cachedCount === "0") {
-                return res.status(200).json({ success: true, start, end, hasMore: false, comments: [] });
-            }
-            if (cachedData) {
-                try {
-                    cachedComments = JSON.parse(cachedData);
-                } catch (error) {
-                    cachedComments = null;
-                    logger.warn("Corrupted data fetched from redis (getComments)", { error });
+        if (isPageOne) {
+            let cachedComments;
+            try {
+                const cachedData = await redis.get(`commentsOnPost:${postID}`);
+
+                if (cachedData) {
+                    try {
+                        cachedComments = JSON.parse(cachedData);
+                    } catch (error) {
+                        cachedComments = null;
+                        logger.warn("Corrupted data fetched from redis (getComments)", { error });
+                    }
                 }
+            } catch (error) {
+                logger.warn("Error on fetch comments from redis (getComments)", { error });
             }
 
-            if (cachedCount) {
-                cachedCommentCount = Number(cachedCount);
+            //RESPONSE TO CLIENT FROM CACHED DATA
+            if (cachedComments) {
+                const nextCursor =
+                    cachedComments.length === take
+                        ? { createdAt: cachedComments[cachedComments.length - 1]?.createdAt, id: cachedComments[cachedComments.length - 1]?.id }
+                        : null;
+                return res.status(200).json({ success: true, comments: cachedComments, nextCursor });
             }
-        } catch (error) {
-            logger.warn("Error on fetch comments from redis (getComments)", { error });
-        }
-
-        //RESPONSE TO CLIENT FROM CACHED DATA
-        if (cachedComments && cachedCommentCount) {
-            return res.status(200).json({ success: true, start, end, hasMore: cachedCommentCount > end, comments: cachedComments });
         }
 
         //DB CALL
-        const [comments, commentCount] = await Promise.all([
-            prisma.comment.findMany({
-                where: { postID },
-                orderBy: {
-                    createdAt: "desc",
-                },
-                skip: start - 1,
-                take: 10,
-            }),
+        const comments = await prisma.comment.findMany({
+            where: {
+                postID,
+                OR: [
+                    {
+                        createdAt: {
+                            lt: new Date(cursor.createdAt),
+                        },
+                    },
+                    {
+                        createdAt: new Date(cursor.createdAt),
+                        id: {
+                            lt: cursor.id,
+                        },
+                    },
+                ],
+            },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            take,
+        });
 
-            prisma.comment.count({ where: { postID } }),
-        ]);
-
-        if (commentCount === 0) {
-            return res.status(200).json({ success: true, start, end, hasMore: false, comments: [] });
+        if (comments.length === 0) {
+            return res.status(200).json({ success: true, comments: [], nextCursor: null });
         }
 
         //GRPC CALL TO GET USERS
@@ -85,29 +93,19 @@ export const getComments = async (req: Request, res: Response, next: NextFunctio
         });
 
         const commentsWithUser = comments.map(comment => {
-            return { ...comment, user: usersObj[comment.userID] };
+            return { ...comment, user: usersObj[comment.userID], commentOwner: comment.userID === viewerUserID };
         });
-
-        //RESPONSE TO CLIENT
-        res.status(200).json({ success: true, start, end, hasMore: commentCount > end, likes: commentsWithUser });
 
         //SAVE IN REDIS
-        const pipeline = redis.pipeline();
-
-        pipeline.set(`commentOnPost:${postID}`, JSON.stringify(commentsWithUser), "EX", 60);
-        pipeline.set(`CommentCountOnPost:${postID}`, commentCount, "EX", 60);
-
-        const pipelineResponse = await pipeline.exec().catch(error => {
-            logger.warn("Failed to save comments in redis (getComments)", { error });
-        });
-
-        if (pipelineResponse) {
-            pipelineResponse.forEach(([error], index) => {
-                if (error) {
-                    logger.warn(`Error on saving comment in redis on query ${index + 1} (getComments)`, { error });
-                }
+        if (isPageOne) {
+            await redis.set(`commentsOnPost:${postID}`, JSON.stringify(commentsWithUser), "EX", 60).catch(error => {
+                logger.warn("Failed to save comments in redis (getComments)", { error });
             });
         }
+
+        //RESPONSE TO CLIENT
+        const nextCursor = comments.length === take ? { createdAt: comments[comments.length - 1]?.createdAt, id: comments[comments.length - 1]?.id } : null;
+        res.status(200).json({ success: true, comments: commentsWithUser, nextCursor });
     } catch (error) {
         logger.error("Error on getting comments on post (getComments)", { error });
         return next(new BadResponse("Internal server error", 500));

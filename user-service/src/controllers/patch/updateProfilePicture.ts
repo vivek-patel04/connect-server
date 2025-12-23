@@ -5,6 +5,7 @@ import { BadResponse } from "../../utils/badResponse.js";
 import type { UploadApiResponse } from "cloudinary";
 import type { Request, Response, NextFunction } from "express";
 import { generateProfilePictureURL, generateUserThumbnailURL } from "../../utils/generateImageURL.js";
+import { redis } from "../../config/redisClient.js";
 
 const uploadToCloudinary = (fileBuffer: Buffer, userID: string): Promise<UploadApiResponse> =>
     new Promise((resolve, reject) => {
@@ -38,7 +39,7 @@ export const updateProfilePicture = async (req: Request, res: Response, next: Ne
 
     if (!req.file) return next(new BadResponse("No file uploaded", 400));
 
-    const allowedTypes = ["image/jpeg", "image/png"];
+    const allowedTypes = ["image/jpeg", "image/png", "image/x-png"];
     if (!allowedTypes.includes(req.file.mimetype)) {
         return next(new BadResponse("Only JPEG and PNG images are allowed", 400));
     }
@@ -46,12 +47,16 @@ export const updateProfilePicture = async (req: Request, res: Response, next: Ne
     try {
         const uploadResult = await uploadToCloudinary(req.file.buffer, userID);
 
-        const profilePictureURL = generateProfilePictureURL(uploadResult.public_id);
-        const thumbnailURL = generateUserThumbnailURL(uploadResult.public_id);
+        const profilePictureURL = generateProfilePictureURL(uploadResult.public_id, uploadResult.version);
+        const thumbnailURL = generateUserThumbnailURL(uploadResult.public_id, uploadResult.version);
 
         await prisma.personalData.update({
             where: { userID },
             data: { cloudinaryPublicID: uploadResult.public_id, profilePictureURL, thumbnailURL },
+        });
+
+        await redis.del(`userProfile:${userID}`).catch(error => {
+            logger.warn("Faiiled to delete profile cache (updateProfilePicture)", { error });
         });
 
         return res.status(201).json({

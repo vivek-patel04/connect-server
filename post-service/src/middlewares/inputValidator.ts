@@ -2,22 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import { z } from "zod";
 import { BadResponse } from "../utils/badResponse.js";
 
-const startSchema = z
-    .string({ message: "Invalid data type" })
-    .min(1, { message: "start can not be empty" })
-    .regex(/^[0-9]+$/, { message: "Start can be a positive integer" })
-    .transform(input => {
-        return Number(input);
-    })
-    .refine(
-        input => {
-            if (input == 0) return false;
-            return true;
-        },
-        { message: "Start can not be 0" }
-    );
-
-const idSchema = z.uuid({ message: "Invalid ID" });
+const idSchema = z.string().uuid({ message: "Invalid ID" });
 
 ////////////////////////////////////////////////////////////////////////////////////
 
@@ -30,7 +15,7 @@ export const postIDValidation = (req: Request, res: Response, next: NextFunction
 
     if (!success) return next(new BadResponse("Invalid URL", 400));
 
-    req.cleanedParams = data;
+    req.cleanedParams = { ...req.cleanedParams, ...data };
     next();
 };
 
@@ -43,35 +28,7 @@ export const commentIDValidation = (req: Request, res: Response, next: NextFunct
 
     if (!success) return next(new BadResponse("Invalid URL", 400));
 
-    req.cleanedParams = data;
-    next();
-};
-
-export const likeIDValidation = (req: Request, res: Response, next: NextFunction) => {
-    const schema = z.object({
-        likeID: idSchema,
-    });
-
-    const { success, data, error } = schema.safeParse(req.params);
-
-    if (!success) return next(new BadResponse("Invalid URL", 400));
-
-    req.cleanedParams = data;
-    next();
-};
-
-export const startQueryValidation = (req: Request, res: Response, next: NextFunction) => {
-    const schema = z.object({
-        start: startSchema,
-    });
-
-    const { success, data, error } = schema.safeParse(req.query);
-
-    if (!success) {
-        return next(new BadResponse(error.issues[0]?.message as string, 400));
-    }
-
-    req.cleanedQuery = data;
+    req.cleanedParams = { ...req.cleanedParams, ...data };
     next();
 };
 
@@ -110,5 +67,33 @@ export const commentInputValidation = (req: Request, res: Response, next: NextFu
     }
 
     req.cleanedBody = data;
+    next();
+};
+
+export const cursorValidation = (req: Request, res: Response, next: NextFunction) => {
+    let cursor = req.query?.cursor;
+
+    if (!cursor) {
+        return next(new BadResponse("Cursor is missing", 404));
+    }
+
+    try {
+        cursor = JSON.parse(cursor as string);
+    } catch (error) {
+        return next(new BadResponse("Invalid cursor", 400));
+    }
+
+    const schema = z.object({
+        createdAt: z.iso.datetime(),
+        id: z.uuid(),
+    });
+
+    const { success, data, error } = schema.safeParse(cursor);
+
+    if (!success) {
+        return next(new BadResponse("Invalid cursor", 400));
+    }
+
+    req.cleanedCursor = data;
     next();
 };

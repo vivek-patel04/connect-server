@@ -13,7 +13,9 @@ const passwordSchema = z
         message: "Password must include at least 1 uppercase, 1 lowercase, 1 number, and 1 special character (- ! @ # $ * . / _).",
     });
 
-const descriptionSchema = z.string({ message: "Invalid data type" }).trim().max(750, { message: "Description must be 750 characters or fewer" }).optional();
+const descriptionSchema = z
+    .union([z.string({ message: "Invalid data type" }).trim().max(750, { message: "Description must be 750 characters or fewer" }), z.null()])
+    .optional();
 
 const dateSchema = z
     .string({ message: "Invalid data type" })
@@ -33,22 +35,27 @@ const dateSchema = z
     );
 
 const dateSchemaOptional = z
-    .string({ message: "Invalid data type" })
-    .trim()
-    .regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, { message: "Date must be in YYYY-MM-DD format" })
-    .refine(
-        input => {
-            if (!input) return true;
-            const [year, month, date] = input.split("-").map(str => Number(str));
+    .union([
+        z
+            .string({ message: "Invalid data type" })
+            .trim()
+            .regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, { message: "Date must be in YYYY-MM-DD format" })
+            .refine(
+                input => {
+                    if (!input) return true;
+                    const [year, month, date] = input.split("-").map(str => Number(str));
 
-            if (!year || !month || !date) return false;
+                    if (!year || !month || !date) return false;
 
-            const d = new Date(year, month - 1, date);
+                    const d = new Date(year, month - 1, date);
 
-            return d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === date;
-        },
-        { message: "Invalid date" }
-    )
+                    return d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === date;
+                },
+                { message: "Invalid date" }
+            ),
+        z.null(),
+    ])
+
     .optional();
 
 const startSchema = z
@@ -230,12 +237,17 @@ export const skillsInputValidation = (req: Request, res: Response, next: NextFun
 export const userBasicInfoInputValidation = (req: Request, res: Response, next: NextFunction) => {
     const schema = z.object({
         dob: dateSchemaOptional,
-        gender: z.enum(["male", "female"], { message: "Gender can be only male or female" }).optional(),
+        gender: z.union([z.enum(["male", "female"], { message: "Gender can be only male or female" }), z.null()]).optional(),
         hometown: z
-            .string({ message: "Invalid data type" })
-            .trim()
-            .min(1, { message: "Home town can not be empty" })
-            .max(50, { message: "Home town must be 50 characters or fewer" })
+            .union([
+                z
+                    .string({ message: "Invalid data type" })
+                    .trim()
+                    .min(1, { message: "Home town can not be empty" })
+                    .max(50, { message: "Home town must be 50 characters or fewer" }),
+                z.null(),
+            ])
+
             .optional(),
         languages: z
             .array(
@@ -314,5 +326,33 @@ export const startQueryParamValidation = (req: Request, res: Response, next: Nex
     }
 
     req.cleanedQuery = data;
+    next();
+};
+
+export const cursorValidation = (req: Request, res: Response, next: NextFunction) => {
+    let cursor = req.query?.cursor;
+
+    if (!cursor) {
+        return next(new BadResponse("Cursor is missing", 404));
+    }
+
+    try {
+        cursor = JSON.parse(cursor as string);
+    } catch (error) {
+        return next(new BadResponse("Invalid cursor", 400));
+    }
+
+    const schema = z.object({
+        createdAt: z.iso.datetime(),
+        id: z.uuid(),
+    });
+
+    const { success, data, error } = schema.safeParse(cursor);
+
+    if (!success) {
+        return next(new BadResponse("Invalid cursor", 400));
+    }
+
+    req.cleanedCursor = data;
     next();
 };

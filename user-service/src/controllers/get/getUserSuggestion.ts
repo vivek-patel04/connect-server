@@ -5,7 +5,7 @@ import { BadResponse } from "../../utils/badResponse.js";
 import type { NextFunction, Request, Response } from "express";
 
 export const userSuggestion = async (req: Request, res: Response, next: NextFunction) => {
-    //url= http://localhost:4002/connection/suggestion
+    //url= base/connection/suggestion
 
     try {
         const userID = req.user?.userID as string;
@@ -27,7 +27,7 @@ export const userSuggestion = async (req: Request, res: Response, next: NextFunc
         }
 
         //DB QUERY
-        if (!userSuggestion) {
+        if (!userSuggestions) {
             const isUserExist = await prisma.user.findUnique({ where: { id: userID } });
 
             if (!isUserExist) throw new BadResponse("Invalid ID or resource not found", 404);

@@ -146,7 +146,7 @@ userGrpcServer.addService(UserCommunicationService, {
                 return callback({ code: status.NOT_FOUND, details: "Resource not found" }, undefined);
             }
 
-            const response = users.map(user => ({ id: user.id, name: user.name, thumbnailURL: user.personalData?.thumbnailURL as string }));
+            const response = users.map(user => ({ id: user.id, name: user.name, personalData: { thumbnailURL: user.personalData?.thumbnailURL as string } }));
 
             return callback(null, { users: response });
         } catch (error) {
@@ -194,7 +194,7 @@ userGrpcServer.addService(UserCommunicationService, {
                 return callback({ code: status.NOT_FOUND, details: "Resource not found" }, undefined);
             }
 
-            return callback(null, { user: { id: user.id, name: user.name, thumbnailURL: user.personalData?.thumbnailURL as string } });
+            return callback(null, { user: { id: user.id, name: user.name, personalData: { thumbnailURL: user.personalData?.thumbnailURL as string } } });
         } catch (error) {
             logger.error("Error on gRPC: getUserByUserId", { error });
             return callback({ code: status.INTERNAL, details: "gRPC internal error" }, undefined);

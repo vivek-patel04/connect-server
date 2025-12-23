@@ -8,5 +8,7 @@ export interface DecodedTokenType extends JwtPayload {
 export interface UserType {
     id: string;
     name: string;
-    thumbnailURL: string;
+    personalData: {
+        thumbnailURL: string;
+    };
 }

@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import multer from "multer";
 import { BadResponse } from "../utils/badResponse.js";
 
-const upload = multer({ limits: { fieldSize: 2 * 1024 * 1024 } });
+const upload = multer({ limits: { fileSize: 2 * 1024 * 1024 } });
 
 export const multerMiddlewareForProfilePicture = (req: Request, res: Response, next: NextFunction) => {
     const handler = upload.single("profilePic");

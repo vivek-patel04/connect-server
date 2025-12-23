@@ -4,108 +4,93 @@ import { prisma } from "../../config/prismaClient.js";
 import { BadResponse } from "../../utils/badResponse.js";
 import type { NextFunction, Request, Response } from "express";
 
-export const sentConnectionRequest = async (req: Request, res: Response, next: NextFunction) => {
-    //url= http://localhost:4002/connection/sent?start=51
+interface CursorType {
+    createdAt: string;
+    id: string;
+}
 
+export const sentConnectionRequest = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userID = req.user?.userID as string;
+        const cursor = req.cleanedCursor as CursorType;
+        const take = 15;
 
-        let { start } = req.cleanedQuery as {
-            start: number;
-        };
-
-        let connections;
-        let totalCount;
+        const isPageOne = cursor.id === "ffffffff-ffff-ffff-ffff-ffffffffffff" && cursor.createdAt > new Date().toISOString();
 
         //REDIS QUERY
-        try {
-            const cachedCount = await redis.get(`userSentConnectionCount:${userID}`);
-            const cachedConnections = await redis.get(`userSentConnection:${userID}:${start}`);
-
-            if (!cachedConnections || !cachedCount) throw Error("404");
-
-            totalCount = Number(cachedCount);
-
-            if (Number.isNaN(totalCount)) throw Error("404");
-
+        if (isPageOne) {
             try {
-                connections = JSON.parse(cachedConnections);
-            } catch (error) {
-                logger.warn("Corrupted data fetched from redis userSentConnection");
-                throw Error("404");
-            }
+                const cachedData = await redis.get(`userSentConnection:${userID}`);
 
-            //RESPONSE TO CLIENT
-            return res.status(200).json({
-                success: true,
-                start,
-                end: start + 19,
-                hasAfter: totalCount > start + 19,
-                connections,
-            });
-        } catch (error: any) {
-            if (error.message === "404") {
-            } else {
-                logger.warn("Error on fetching sent connection details from redis", { error });
+                let cachedUsers;
+                if (cachedData) {
+                    try {
+                        cachedUsers = JSON.parse(cachedData);
+                    } catch (error) {
+                        logger.warn("Corrupted data fetched from redis (getSentConnection)", { error });
+                    }
+                }
+
+                if (cachedUsers) {
+                    const nextCursor =
+                        cachedUsers.length === take
+                            ? { createdAt: cachedUsers[cachedUsers.length - 1]?.createdAt, id: cachedUsers[cachedUsers.length - 1]?.id }
+                            : null;
+
+                    return res.status(200).json({ success: true, users: cachedUsers, nextCursor });
+                }
+            } catch (error) {
+                logger.warn("Error on fetch sent connections from redis (getSentConnection)", { error });
             }
         }
 
         //DB QUERY IF REDIS QUERY FAILED
-        [totalCount, connections] = await Promise.all([
-            prisma.connection.count({ where: { senderID: userID, status: "pending" } }),
-
-            prisma.connection.findMany({
-                where: {
-                    senderID: userID,
-                    status: "pending",
-                },
-
-                orderBy: {
-                    createdAt: "desc",
-                },
-
-                skip: start - 1,
-                take: 20,
-                select: {
-                    receiver: {
-                        select: {
-                            id: true,
-                            name: true,
-                            personalData: { select: { thumbnailURL: true } },
+        const users = await prisma.connection.findMany({
+            where: {
+                senderID: userID,
+                status: "pending",
+                OR: [
+                    {
+                        createdAt: {
+                            lt: new Date(cursor.createdAt),
                         },
                     },
+                    {
+                        createdAt: new Date(cursor.createdAt),
+                        id: {
+                            lt: cursor.id,
+                        },
+                    },
+                ],
+            },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            take,
+            select: {
+                receiver: {
+                    select: {
+                        id: true,
+                        name: true,
+                        personalData: { select: { thumbnailURL: true } },
+                        createdAt: true,
+                    },
                 },
-            }),
-        ]);
-
-        //RESPONSE TO CLIENT
-        res.status(200).json({
-            success: true,
-            start,
-            end: start + 19,
-            hasAfter: totalCount > start + 19,
-            connections,
+            },
         });
+
+        const nextCursor = users.length === take ? { createdAt: users[users.length - 1]?.receiver?.createdAt, id: users[users.length - 1]?.receiver.id } : null;
+        const finalUsers = users.map(user => user.receiver);
 
         //SAVE DATA IN REDIS
-        const pipeline = redis.pipeline();
-        pipeline.set(`userSentConnectionCount:${userID}`, totalCount, "EX", 60);
-        pipeline.set(`userSentConnection:${userID}:${start}`, JSON.stringify(connections), "EX", 60);
-
-        const pipelineResult = await pipeline.exec().catch(error => {
-            logger.warn("Error on saving user's sent connection and count in redis", { error });
-            return null;
-        });
-
-        if (pipelineResult) {
-            pipelineResult.forEach(([error, d], index) => {
-                if (error) {
-                    logger.warn(`Error on saving user's sent connection on query ${index + 1} in redis`, { error });
-                }
+        if (isPageOne) {
+            await redis.set(`userSentConnection:${userID}`, JSON.stringify(finalUsers), "EX", 60).catch(error => {
+                logger.warn(`Error on saving user's sent connections in redis (getSentConnection)`, { error });
             });
         }
+
+        //RESPONSE TO CLIENT
+        return res.status(200).json({ success: true, users: finalUsers, nextCursor });
     } catch (error) {
-        logger.error("Error on getSentConnection", { error });
+        logger.error("Error on getting sent connections data (getSentConnection)", { error });
         return next(new BadResponse("Internal server error", 500));
     }
 };

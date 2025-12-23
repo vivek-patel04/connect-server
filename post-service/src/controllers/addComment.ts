@@ -28,18 +28,14 @@ export const addComment = async (req: Request, res: Response, next: NextFunction
         const user = grpcResponse.user;
 
         //DB CALL
-        const [newComment, totalComments] = await prisma.$transaction([
-            prisma.comment.create({
-                data: {
-                    comment,
-                    postID,
-                    userID,
-                },
-            }),
-            prisma.comment.count({
-                where: { postID },
-            }),
-        ]);
+
+        const newComment = await prisma.comment.create({
+            data: {
+                comment,
+                postID,
+                userID,
+            },
+        });
 
         const newCommentWithUserData = { ...newComment, user };
 
@@ -47,10 +43,10 @@ export const addComment = async (req: Request, res: Response, next: NextFunction
         const pipeline = redis.pipeline();
 
         pipeline.del(`userOwnPosts:${userID}`);
-        pipeline.del(`userConnectionPosts:${userID}`);
+        pipeline.del(`userFeedPosts:${userID}`);
         pipeline.del(`post:${postID}`);
-        pipeline.del(`commentOnPost:${postID}`);
-        pipeline.del(`CommentCountOnPost:${postID}`);
+        pipeline.del(`commentsOnPost:${postID}`);
+        pipeline.del(`commentsCountOnPost:${postID}`);
 
         const pipelineResponse = await pipeline.exec().catch(error => {
             logger.warn("Failed to delete data in redis (addComment)", { error });
@@ -64,12 +60,12 @@ export const addComment = async (req: Request, res: Response, next: NextFunction
             });
         }
 
-        return res.status(200).json({ success: true, comment: newCommentWithUserData, commentCount: totalComments });
+        return res.status(200).json({ success: true, comment: newCommentWithUserData });
     } catch (error: any) {
         if (error.code === "P2003") {
             return next(new BadResponse("Post not found", 404));
         }
-        logger.error("Error on creating post (addComment)", { error });
+        logger.error("Error on adding comment (addComment)", { error });
         return next(new BadResponse("Internal server error", 500));
     }
 };

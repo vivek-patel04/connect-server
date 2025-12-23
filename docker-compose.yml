@@ -4,7 +4,7 @@ services:
     container_name: api-gateway-nginx
     restart: always
     ports:
-      - "8080:80"         
+      - "8080:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
@@ -17,6 +17,8 @@ services:
   connect_redis:
     image: redis:8-alpine
     container_name: connect_redis
+    ports:
+      - "6379:6379"
     volumes:
       - connect_redis_data:/data
     networks:
@@ -43,6 +45,9 @@ services:
     image: auth_dev_image
     env_file:
       - ./auth-service/.env
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - CHOKIDAR_INTERVAL=100
     volumes:
       - ./auth-service:/app
       - auth_node_modules:/app/node_modules
@@ -78,11 +83,19 @@ services:
     image: user_dev_image
     env_file:
       - ./user-service/.env
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - CHOKIDAR_INTERVAL=100
     volumes:
       - ./user-service:/app
       - user_node_modules:/app/node_modules
     networks:
       - connect
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1  
     depends_on:
       - connect_redis
       - connect_postgres
@@ -115,6 +128,9 @@ services:
     image: post_dev_image
     env_file:
       - ./post-service/.env
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - CHOKIDAR_INTERVAL=100
     volumes:
       - ./post-service:/app
       - post_node_modules:/app/node_modules
@@ -140,9 +156,10 @@ services:
     depends_on:
       - connect_redis
       - connect_postgres
-      
+
 networks:
   connect:
+
 
 volumes:
   connect_redis_data:

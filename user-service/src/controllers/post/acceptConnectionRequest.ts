@@ -36,8 +36,6 @@ export const acceptConnection = async (req: Request, res: Response, next: NextFu
         const pipeline = redis.pipeline();
         pipeline.del(`userConnectionCount:${loggedinUserID}`);
         pipeline.del(`userConnectionCount:${senderUserID}`);
-        pipeline.del(`userReceivedConnectionCount:${loggedinUserID}`);
-        pipeline.del(`userSentConnectionCount:${senderUserID}`);
         pipeline.del(`userConnection:${loggedinUserID}`);
         pipeline.del(`userConnection:${senderUserID}`);
         pipeline.del(`userReceivedConnection:${loggedinUserID}`);

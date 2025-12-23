@@ -11,6 +11,6 @@ export { getComments } from "./getComments.js";
 export { getLikeCount } from "./getLikeCount.js";
 export { getLikes } from "./getLikes.js";
 export { getPost } from "./getPost.js";
-export { getPostsOfconnections } from "./getPostsOfConnection.js";
+export { getFeedPosts } from "./getFeedPosts.js";
 export { getTrendingPosts } from "./getTrendingPosts.js";
 export { getUserOwnPosts } from "./getUserOwnPosts.js";

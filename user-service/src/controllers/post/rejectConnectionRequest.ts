@@ -20,8 +20,7 @@ export const rejectConnection = async (req: Request, res: Response, next: NextFu
 
         //REDIS CLEAN UP
         const pipeline = redis.pipeline();
-        pipeline.del(`userReceivedConnectionCount:${loggedinUserID}`);
-        pipeline.del(`userSentConnectionCount:${senderUserID}`);
+
         pipeline.del(`userReceivedConnection:${loggedinUserID}`);
         pipeline.del(`userSentConnection:${senderUserID}`);
         pipeline.del(`userSuggestion:${loggedinUserID}`);

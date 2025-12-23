@@ -28,26 +28,21 @@ export const addLike = async (req: Request, res: Response, next: NextFunction) =
 
         //DB CALL
 
-        const [newLike, totalLike] = await prisma.$transaction([
-            prisma.like.create({
-                data: {
-                    postID,
-                    userID,
-                },
-            }),
-            prisma.like.count({
-                where: { postID },
-            }),
-        ]);
+        const ok = await prisma.like.create({
+            data: {
+                postID,
+                userID,
+            },
+        });
 
         //CLEAN CACHED DATA
         const pipeline = redis.pipeline();
 
         pipeline.del(`userOwnPosts:${userID}`);
-        pipeline.del(`userConnectionPosts:${userID}`);
+        pipeline.del(`userFeedPosts:${userID}`);
         pipeline.del(`post:${postID}`);
-        pipeline.del(`likeOnPost:${postID}`);
-        pipeline.del(`likeCountOnPost:${postID}`);
+        pipeline.del(`likesOnPost:${postID}`);
+        pipeline.del(`likesCountOnPost:${postID}`);
 
         const pipelineResponse = await pipeline.exec().catch(error => {
             logger.warn("Failed to delete data in redis (addLike)", { error });
@@ -61,7 +56,7 @@ export const addLike = async (req: Request, res: Response, next: NextFunction) =
             });
         }
 
-        return res.status(200).json({ success: true, likeCount: totalLike });
+        return res.status(200).json({ success: true });
     } catch (error: any) {
         if (error.code === "P2003") {
             return next(new BadResponse("Post not found", 404));
@@ -70,7 +65,7 @@ export const addLike = async (req: Request, res: Response, next: NextFunction) =
         if (error.code === "P2002") {
             return next(new BadResponse("Already liked the post", 403));
         }
-        logger.error("Error on creating post (addLike)", { error });
+        logger.error("Error on adding like (addLike)", { error });
         return next(new BadResponse("Internal server error", 500));
     }
 };

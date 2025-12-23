@@ -1,40 +1,41 @@
 {
-  "name": "auth-service",
-  "version": "1.0.0",
-  "description": "",
-  "main": "server.js",
-  "type": "module",
-  "scripts": {
-    "build": "tsc",
-    "check": "tsc --noEmit",
-    "dev": "tsx watch src/server.ts",
-    "start": "node dist/server.js",
-    "auth-user-proto:gen": "protoc --plugin=protoc-gen-ts_proto=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=./src/grpc/generated --ts_proto_opt=esModuleInterop=true,outputServices=grpc-js,useOptionals=messages auth-user.proto"
-  },
-  "keywords": [],
-  "author": "Vivekanand Patel",
-  "license": "ISC",
-  "dependencies": {
-    "@bufbuild/protobuf": "^2.10.0",
-    "@grpc/grpc-js": "^1.14.0",
-    "bcrypt": "^6.0.0",
-    "cookie-parser": "^1.4.7",
-    "dotenv": "^17.2.3",
-    "express": "^5.1.0",
-    "ioredis": "^5.8.2",
-    "jsonwebtoken": "^9.0.2",
-    "uuid": "^13.0.0",
-    "winston": "^3.18.3",
-    "zod": "^4.1.13"
-  },
-  "devDependencies": {
-    "@types/bcrypt": "^6.0.0",
-    "@types/cookie-parser": "^1.4.10",
-    "@types/express": "^5.0.4",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^24.9.1",
-    "ts-proto": "^2.8.1",
-    "tsx": "^4.20.6",
-    "typescript": "^5.9.3"
-  }
+    "name": "auth-service",
+    "version": "1.0.0",
+    "description": "",
+    "main": "server.js",
+    "type": "module",
+    "scripts": {
+        "build": "tsc",
+        "check": "tsc --noEmit",
+        "dev": "tsx watch src/server.ts",
+        "start": "node dist/server.js",
+        "auth-user-proto:gen": "protoc --plugin=protoc-gen-ts_proto=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=./src/grpc/generated --ts_proto_opt=esModuleInterop=true,outputServices=grpc-js,useOptionals=messages user.proto"
+    },
+    "keywords": [],
+    "author": "Vivekanand Patel",
+    "license": "ISC",
+    "dependencies": {
+        "@bufbuild/protobuf": "^2.10.0",
+        "@grpc/grpc-js": "^1.14.0",
+        "bcrypt": "^6.0.0",
+        "cookie-parser": "^1.4.7",
+        "cors": "^2.8.5",
+        "dotenv": "^17.2.3",
+        "express": "^5.1.0",
+        "ioredis": "^5.8.2",
+        "jsonwebtoken": "^9.0.3",
+        "uuid": "^13.0.0",
+        "winston": "^3.18.3",
+        "zod": "^4.1.13"
+    },
+    "devDependencies": {
+        "@types/bcrypt": "^6.0.0",
+        "@types/cookie-parser": "^1.4.10",
+        "@types/express": "^5.0.4",
+        "@types/jsonwebtoken": "^9.0.10",
+        "@types/node": "^24.9.1",
+        "ts-proto": "^2.8.1",
+        "tsx": "^4.20.6",
+        "typescript": "^5.9.3"
+    }
 }

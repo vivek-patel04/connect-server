@@ -8,9 +8,6 @@ export const userProfile = async (req: Request, res: Response, next: NextFunctio
     try {
         const userID = req.cleanedParams?.id as string;
 
-        console.log("userProfile receiving request", userID);
-        if (!userID) return next(new BadResponse("User id missing", 400));
-
         let userProfile;
         //FETCH USER PROFILE FROM REDIS
         try {
@@ -60,6 +57,8 @@ export const userProfile = async (req: Request, res: Response, next: NextFunctio
         }
 
         if (!userProfile) return next(new BadResponse("Invalid id, no user found", 404));
+
+        await redis.set(`userProfile:${userID}`, JSON.stringify(userProfile), "EX", 60 * 15);
 
         return res.status(200).json({ success: true, message: "User profile is attached", userProfile });
     } catch (error: any) {

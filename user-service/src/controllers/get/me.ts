@@ -8,46 +8,61 @@ export const me = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userID = req.user?.userID as string;
 
-        //FETCH USER BASIC DATA FROM REDIS
-        let cached = await redis.get(`userBasic:${userID}`).catch(error => {
-            cached = null;
-            logger.warn("Error on fetch userBasic from redis", { error });
-        });
+        let userProfile;
+        //FETCH USER PROFILE FROM REDIS
+        try {
+            const cached = await redis.get(`userProfile:${userID}`);
 
-        let userBasic;
-        if (cached) {
-            try {
-                userBasic = JSON.parse(cached);
-            } catch (error) {
-                userBasic = null;
-                logger.warn("Invalid/corrupted userBasic data from redis", { error });
+            if (cached) {
+                try {
+                    userProfile = JSON.parse(cached);
+                } catch (error) {
+                    logger.warn("Corrupted userProfile data fetched from redis (me)", { error });
+                    userProfile = null;
+
+                    await redis.del(`userProfile:${userID}`).catch(error => {
+                        logger.warn("failed to delete userProfile from redis (me)", { error });
+                    });
+                }
+            }
+        } catch (error) {
+            logger.warn("Error on fetch userProfile from redis (me)", { error });
+            userProfile = null;
+        }
+
+        //FETCH USER PROFILE FROM DB, IF NOT FOUND IN REDIS
+        if (!userProfile) {
+            const userProfileFromDb = await prisma.user.findUnique({
+                where: { id: userID },
+                include: {
+                    personalData: {
+                        include: {
+                            education: true,
+                            workExperience: true,
+                            awards: true,
+                            skills: true,
+                        },
+                    },
+                },
+            });
+
+            if (userProfileFromDb) {
+                const { password, ...safeProfile } = userProfileFromDb;
+                userProfile = safeProfile;
+
+                await redis.set(`userProfile:${userID}`, JSON.stringify(userProfile), "EX", 60 * 60 * 3).catch(error => {
+                    logger.warn("Error on save userprofile in redis(me)", { error });
+                });
             }
         }
 
-        //FETCH USER BASIC DATA FROM DB
-        if (!userBasic) {
-            userBasic = await prisma.user.findUnique({
-                where: {
-                    id: userID,
-                },
-                select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                    personalData: { select: { profilePictureURL: true, thumbnailURL: true } },
-                },
-            });
+        if (!userProfile) return next(new BadResponse("Invalid id, no user found", 404));
 
-            if (!userBasic) return next(new BadResponse("Invalid id, user not found", 404));
+        await redis.set(`userProfile:${userID}`, JSON.stringify(userProfile), "EX", 60 * 15);
 
-            await redis.set(`userBasic:${userID}`, JSON.stringify(userBasic), "EX", 60 * 60 * 6).catch(error => {
-                logger.warn("Error on add userBasic to redis", { error });
-            });
-        }
-
-        return res.status(200).json({ success: true, me: userBasic });
-    } catch (error) {
-        logger.error("User authentication error", { error });
+        return res.status(200).json({ success: true, me: userProfile });
+    } catch (error: any) {
+        logger.error("Error on get me (me)", error);
         return next(new BadResponse("Internal server error", 500));
     }
 };

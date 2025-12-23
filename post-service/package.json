@@ -10,7 +10,7 @@
         "start": "node dist/server.js",
         "dev": "tsx watch src/server.ts",
         "check": "tsc --noEmit",
-        "post-user-proto:gen": "protoc --plugin=protoc-gen-ts_proto=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=./src/grpc/generated --ts_proto_opt=esModuleInterop=true,outputServices=grpc-js,useOptionals=messages post-user.proto"
+        "post-user-proto:gen": "protoc --plugin=protoc-gen-ts_proto=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=./src/grpc/generated --ts_proto_opt=esModuleInterop=true,outputServices=grpc-js,useOptionals=messages user.proto"
     },
     "keywords": [],
     "author": "Vivekanand Patel",
@@ -18,16 +18,17 @@
     "type": "module",
     "dependencies": {
         "@grpc/grpc-js": "^1.14.1",
-        "@prisma/adapter-pg": "^7.0.1",
-        "@prisma/client": "^7.0.1",
+        "@prisma/adapter-pg": "^7.2.0",
+        "@prisma/client": "^7.2.0",
         "cookie-parser": "^1.4.7",
+        "cors": "^2.8.5",
         "dotenv": "^17.2.3",
-        "express": "^5.1.0",
+        "express": "^5.2.1",
         "ioredis": "^5.8.2",
-        "jsonwebtoken": "^9.0.2",
+        "jsonwebtoken": "^9.0.3",
         "pg": "^8.16.3",
-        "winston": "^3.18.3",
-        "zod": "^4.1.13"
+        "winston": "^3.19.0",
+        "zod": "^4.2.1"
     },
     "devDependencies": {
         "@types/cookie-parser": "^1.4.10",
@@ -35,7 +36,7 @@
         "@types/jsonwebtoken": "^9.0.10",
         "@types/node": "^24.10.1",
         "@types/pg": "^8.15.6",
-        "prisma": "^7.0.1",
+        "prisma": "^7.2.0",
         "ts-proto": "^2.8.3",
         "tsx": "^4.21.0",
         "typescript": "^5.9.3"

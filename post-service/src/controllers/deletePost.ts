@@ -25,14 +25,12 @@ export const deletePost = async (req: Request, res: Response, next: NextFunction
         const pipeline = redis.pipeline();
 
         pipeline.del(`userOwnPosts:${userID}`);
-        pipeline.del(`userOwnPostsCount:${userID}`);
-        pipeline.del(`userConnectionPosts:${userID}`);
-        pipeline.del(`userConnectionPostsCount:${userID}`);
+        pipeline.del(`userFeedPosts:${userID}`);
         pipeline.del(`post:${postID}`);
-        pipeline.del(`likeOnPost:${postID}`);
-        pipeline.del(`likeCountOnPost:${postID}`);
-        pipeline.del(`commentOnPost:${postID}`);
-        pipeline.del(`CommentCountOnPost:${postID}`);
+        pipeline.del(`likesOnPost:${postID}`);
+        pipeline.del(`likesCountOnPost:${postID}`);
+        pipeline.del(`commentsOnPost:${postID}`);
+        pipeline.del(`commentsCountOnPost:${postID}`);
 
         const pipelineResponse = await pipeline.exec().catch(error => {
             logger.warn("Failed to delete data in redis (deletePost)", { error });

@@ -20,8 +20,7 @@ export const deleteSentRequest = async (req: Request, res: Response, next: NextF
 
         //REDIS CLEAN UP
         const pipeline = redis.pipeline();
-        pipeline.del(`userReceivedConnectionCount:${receiverUserID}`);
-        pipeline.del(`userSentConnectionCount:${loggedinUserID}`);
+
         pipeline.del(`userReceivedConnection:${receiverUserID}`);
         pipeline.del(`userSentConnection:${loggedinUserID}`);
         pipeline.del(`userSuggestion:${receiverUserID}`);

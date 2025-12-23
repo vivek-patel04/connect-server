@@ -12,7 +12,7 @@ export const getCommentCount = async (req: Request, res: Response, next: NextFun
         //FETCH FROM CACHE
         let cachedCount;
         try {
-            const cached = await redis.get(`CommentCountOnPost:${postID}`);
+            const cached = await redis.get(`commentsCountOnPost:${postID}`);
 
             if (cached) {
                 cachedCount = Number(cached);
@@ -27,12 +27,12 @@ export const getCommentCount = async (req: Request, res: Response, next: NextFun
         //DB CALL
         const commentCount = await prisma.comment.count({ where: { postID } });
 
-        res.status(200).json({ success: true, commentCount });
-
         //SAVE IN REDIS
-        await redis.set(`CommentCountOnPost:${postID}`, commentCount, "EX", 60).catch(error => {
+        await redis.set(`commentsCountOnPost:${postID}`, commentCount, "EX", 60).catch(error => {
             logger.warn("Error on save comment count in redis (getCommentCount)", { error });
         });
+
+        return res.status(200).json({ success: true, commentCount });
     } catch (error) {
         logger.error("Error on getting comment count (getCommentCount)", { error });
         return next(new BadResponse("Internal server error", 500));

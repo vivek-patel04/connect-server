@@ -1,10 +1,11 @@
 import { cloudinary } from "../config/cloudinary.js";
 import { logger } from "./logger.js";
 
-export const generateProfilePictureURL = (publicID: string) => {
+export const generateProfilePictureURL = (publicID: string, version: number) => {
     try {
         const url = cloudinary.url(publicID, {
-            width: 180,
+            version,
+            width: 600,
             crop: "limit",
             fetch_format: "auto",
             quality: "auto",
@@ -17,10 +18,11 @@ export const generateProfilePictureURL = (publicID: string) => {
     }
 };
 
-export const generateUserThumbnailURL = (publicID: string) => {
+export const generateUserThumbnailURL = (publicID: string, version: number) => {
     try {
         const url = cloudinary.url(publicID, {
-            width: 50,
+            version,
+            width: 150,
             crop: "limit",
             fetch_format: "auto",
             quality: "auto",

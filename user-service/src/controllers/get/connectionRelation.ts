@@ -51,11 +51,11 @@ export const connectionRelation = async (req: Request, res: Response, next: Next
         }
 
         if (userRelation.status === "accepted") {
-            await redis.set(`userRelation${loggedinUserID}:${otherUserID}`, "connected", "EX", 60 * 5).catch(error => {
+            await redis.set(`userRelation${loggedinUserID}:${otherUserID}`, "connection", "EX", 60 * 5).catch(error => {
                 logger.warn("Failed to save user relation in redis (connectionRelation)", { error });
             });
 
-            return res.status(200).json({ success: true, relation: "connected" });
+            return res.status(200).json({ success: true, relation: "connection" });
         }
 
         if (loggedinUserID === userRelation.senderID) {

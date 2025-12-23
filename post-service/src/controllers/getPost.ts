@@ -9,7 +9,8 @@ export const getPost = async (req: Request, res: Response, next: NextFunction) =
     //base/api/post/:postID
 
     try {
-        const postID = req.cleanedParams.postID as string;
+        const postID = req.cleanedParams.postID!;
+        const viewerUserID = req.user?.userID!;
         //FETCH CACHED DATA FROM REDIS
         let cachedPost;
         try {
@@ -43,6 +44,13 @@ export const getPost = async (req: Request, res: Response, next: NextFunction) =
             return next(new BadResponse("Resource not found", 404));
         }
 
+        const isViewerLiked =
+            (
+                await prisma.like.findMany({
+                    where: { postID: post.id, userID: viewerUserID },
+                })
+            ).length === 1;
+
         //GRPC CALL TO GET USER
         let grpcResponse;
         try {
@@ -58,15 +66,15 @@ export const getPost = async (req: Request, res: Response, next: NextFunction) =
 
         const user = grpcResponse.user;
 
-        const postWithUser = { ...post, user };
-
-        //RESPONSE TO CLIENT
-        res.status(200).json({ success: true, post: postWithUser });
+        const postWithUser = { ...post, user, viewerLiked: isViewerLiked, viewerPost: post.userID === viewerUserID };
 
         //SAVE IN REDIS
-        await redis.set(`post:${postID}`, JSON.stringify(post)).catch(error => {
+        await redis.set(`post:${postID}`, JSON.stringify(postWithUser), "EX", 60).catch(error => {
             logger.warn("Failed to save post in redis (getPost)", { error });
         });
+
+        //RESPONSE TO CLIENT
+        return res.status(200).json({ success: true, post: postWithUser });
     } catch (error) {
         logger.error("Error on getting post (getPost)", { error });
         return next(new BadResponse("Internal server error", 500));

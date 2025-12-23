@@ -27,7 +27,7 @@ export const getUsersByUserIDs = (requestObject: getUsersByUserIDsRequest): Prom
                 return reject(error);
             }
 
-            return resolve({ users: response.users });
+            return resolve({ users: response.users as UserType[] });
         });
     });
 
@@ -36,7 +36,7 @@ interface getUserByUserIDRequest {
 }
 
 interface getUserByUserIDResponse {
-    user: UserType | undefined;
+    user: UserType;
 }
 
 export const getUserByUserID = (requestObject: getUserByUserIDRequest): Promise<getUserByUserIDResponse> =>
@@ -52,7 +52,7 @@ export const getUserByUserID = (requestObject: getUserByUserIDRequest): Promise<
                 return reject(error);
             }
 
-            return resolve({ user: response.user });
+            return resolve({ user: response.user as UserType });
         });
     });
 

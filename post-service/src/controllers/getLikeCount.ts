@@ -12,7 +12,7 @@ export const getLikeCount = async (req: Request, res: Response, next: NextFuncti
         //FETCH FROM CACHE
         let cachedCount;
         try {
-            const cached = await redis.get(`likeCountOnPost:${postID}`);
+            const cached = await redis.get(`likesCountOnPost:${postID}`);
 
             if (cached) {
                 cachedCount = Number(cached);
@@ -27,12 +27,12 @@ export const getLikeCount = async (req: Request, res: Response, next: NextFuncti
         //DB CALL
         const likeCount = await prisma.like.count({ where: { postID } });
 
-        res.status(200).json({ success: true, likeCount });
-
         //SAVE IN REDIS
-        await redis.set(`likeCountOnPost:${postID}`, likeCount, "EX", 60).catch(error => {
+        await redis.set(`likesCountOnPost:${postID}`, likeCount, "EX", 60).catch(error => {
             logger.warn("Error on save like count in redis (getLikeCount)", { error });
         });
+
+        return res.status(200).json({ success: true, likeCount });
     } catch (error) {
         logger.error("Error on getting like count (getLikeCount)", { error });
         return next(new BadResponse("Internal server error", 500));

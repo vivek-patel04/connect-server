@@ -7,6 +7,7 @@ declare global {
             cleanedBody?: any;
             cleanedParams?: any;
             cleanedQuery?: any;
+            cleanedCursor?: any;
         }
     }
 }

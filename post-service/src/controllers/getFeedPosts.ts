@@ -1,33 +1,35 @@
-import { logger } from "../utils/logger.js";
-import { prisma } from "../config/prismaConfig.js";
-import { BadResponse } from "../utils/badResponse.js";
-import { getUserByUserID } from "../grpc/grpcCall.js";
 import type { NextFunction, Request, Response } from "express";
+import { prisma } from "../config/prismaConfig.js";
+import { getConnectionUserIDs, getUsersByUserIDs } from "../grpc/grpcCall.js";
+import { logger } from "../utils/logger.js";
+import { BadResponse } from "../utils/badResponse.js";
+import type { UserType } from "../types/model.types.js";
 import { redis } from "../config/redisConfig.js";
 
-export const getUserOwnPosts = async (req: Request, res: Response, next: NextFunction) => {
-    //get: base/api/post/user?start=1
+export const getFeedPosts = async (req: Request, res: Response, next: NextFunction) => {
+    //base/api/post/connection?start=1
     try {
-        const userID = req.user?.userID as string;
+        const userID = req.user?.userID!;
         const cursor = req.cleanedCursor!;
 
-        // GET DATA FROM REDIS
+        //FETCH CACHED DATA IN REDIS
         const isPageOne = cursor.id === "ffffffff-ffff-ffff-ffff-ffffffffffff" && cursor.createdAt > new Date().toISOString();
+
         if (isPageOne) {
             let cachedPosts;
             try {
-                const cachedData = await redis.get(`userOwnPosts:${userID}`);
+                const cachedData = await redis.get(`userFeedPosts:${userID}`);
 
                 if (cachedData) {
                     try {
                         cachedPosts = JSON.parse(cachedData);
                     } catch (error) {
                         cachedPosts = null;
-                        logger.warn("Corrupted data fetched from redis (getUserOwnPosts)", { error });
+                        logger.warn("Corrupted data fetched from redis (getFeedPosts)", { error });
                     }
                 }
             } catch (error) {
-                logger.warn("Error on fetch user posts data from redis (getUserOwnPosts)", { error });
+                logger.warn("Error on fetch posts data from redis (getFeedPosts)", { error });
             }
 
             //RESPONSE TO CLIENT FROM CACHED DATA
@@ -40,25 +42,22 @@ export const getUserOwnPosts = async (req: Request, res: Response, next: NextFun
             }
         }
 
-        //GRPC CALL TO GET USER DATA
-        let grpcResponse;
+        //GRPC CALL TO GET CONNECTIONS ID
+        let grpcResponseForconnectionIDs;
         try {
-            grpcResponse = await getUserByUserID({ userID });
+            grpcResponseForconnectionIDs = await getConnectionUserIDs({ userID });
         } catch (error) {
-            logger.error("Error on grpc call (getUserOwnPosts)", { error });
+            logger.error("Error on grpc call (getFeedPosts)", { error });
             return next(new BadResponse("Internal server error", 500));
         }
 
-        if (!grpcResponse) {
-            return next(new BadResponse("Invalid user ID, resource not found", 404));
-        }
+        let allIDs = grpcResponseForconnectionIDs.userIDs;
+        allIDs.push(userID);
 
-        const user = grpcResponse.user;
-
-        // GET DATA FROM DB
+        //DB CALL
         const posts = await prisma.post.findMany({
             where: {
-                userID,
+                userID: { in: allIDs },
                 OR: [
                     {
                         createdAt: {
@@ -103,25 +102,45 @@ export const getUserOwnPosts = async (req: Request, res: Response, next: NextFun
 
         const likedPostSet = new Set(viewerLikeOnPosts.map(p => p.postID));
 
+        //GRPC CALL TO GET USER DATA
+        const userIDSet = new Set<string>();
+        for (let post of posts) {
+            userIDSet.add(post.userID);
+        }
+        const userIDArray = Array.from(userIDSet);
+
+        let grpcResponseForUsers;
+        try {
+            grpcResponseForUsers = await getUsersByUserIDs({ userIDs: userIDArray });
+        } catch (error) {
+            logger.error("Error on grpc call (getFeedPosts)", { error });
+            return next(new BadResponse("Internal server error", 500));
+        }
+
+        const usersObj: Record<string, UserType> = {};
+
+        grpcResponseForUsers.users.forEach(user => {
+            usersObj[user.id] = user;
+        });
+
         const postsWithUser = posts.map(post => ({
             ...post,
-            user,
+            user: usersObj[post.userID],
             viewerLiked: likedPostSet.has(post.id),
-            viewerPost: true,
+            viewerPost: post.userID === userID,
         }));
-
-        const nextCursor = posts.length === 15 ? { createdAt: posts[posts.length - 1]?.createdAt, id: posts[posts.length - 1]?.id } : null;
 
         //SAVE IN REDIS
         if (isPageOne) {
-            await redis.set(`userOwnPosts:${userID}`, JSON.stringify(postsWithUser), "EX", 15).catch(error => {
-                logger.warn("Failed to save user own posts in redis (getUserOwnPosts)", { error });
+            await redis.set(`userFeedPosts:${userID}`, JSON.stringify(postsWithUser), "EX", 15).catch(error => {
+                logger.warn("Failed to save user feed posts in redis (getFeedPosts)", { error });
             });
         }
 
+        const nextCursor = posts.length === 15 ? { createdAt: posts[posts.length - 1]?.createdAt, id: posts[posts.length - 1]?.id } : null;
         return res.status(200).json({ success: true, posts: postsWithUser, nextCursor });
     } catch (error) {
-        logger.error("Error on get user own post (getUserOwnPosts)", { error });
+        logger.error("Error on getting posts (getFeedPosts)", { error });
         return next(new BadResponse("Internal server error", 500));
     }
 };

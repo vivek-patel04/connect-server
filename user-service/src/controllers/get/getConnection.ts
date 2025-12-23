@@ -4,115 +4,98 @@ import { prisma } from "../../config/prismaClient.js";
 import { BadResponse } from "../../utils/badResponse.js";
 import type { NextFunction, Request, Response } from "express";
 
+interface CursorType {
+    createdAt: string;
+    id: string;
+}
 export const connection = async (req: Request, res: Response, next: NextFunction) => {
-    //url= http://localhost:4002/connection/:id?start=51&count=20&sort=asc
-
     try {
-        const userID = req.cleanedParams as string;
-        let { start, count, sort } = req.cleanedQuery as {
-            start: number;
-            count: number;
-            sort: "asc" | "desc" | "recent";
-        };
+        const userID = req.user?.userID as string;
+        const cursor = req.cleanedCursor as CursorType;
+        const take = 15;
 
-        let connections;
-        let totalCount;
+        const isPageOne = cursor.id === "ffffffff-ffff-ffff-ffff-ffffffffffff" && cursor.createdAt > new Date().toISOString();
 
         //REDIS QUERY
-        try {
-            const cachedCount = await redis.get(`userConnectionCount:${userID}`);
-            const cachedConnections = await redis.get(`userConnection:${userID}:${start}:${count}:${sort}`);
-
-            if (!cachedConnections || !cachedCount) throw Error("404");
-
-            totalCount = Number(cachedCount);
-
-            if (Number.isNaN(totalCount)) throw Error("404");
-
+        if (isPageOne) {
             try {
-                connections = JSON.parse(cachedConnections);
-            } catch (error) {
-                logger.warn("Corrupted data fetched from redis userConnection");
-                throw Error("404");
-            }
+                const cachedData = await redis.get(`userConnection:${userID}`);
 
-            //RESPONSE TO CLIENT
-            return res.status(200).json({
-                success: true,
-                start,
-                end: start + count - 1,
-                hasAfter: totalCount > start + count - 1,
-                connections,
-            });
-        } catch (error: any) {
-            if (error.message === "404") {
-            } else {
-                logger.warn("Error on fetching user connection details from redis", { error });
+                let cachedUsers;
+                if (cachedData) {
+                    try {
+                        cachedUsers = JSON.parse(cachedData);
+                    } catch (error) {
+                        logger.warn("Corrupted data fetched from redis (getConnection)", { error });
+                    }
+                }
+
+                if (cachedUsers) {
+                    const nextCursor =
+                        cachedUsers.length === take
+                            ? { createdAt: cachedUsers[cachedUsers.length - 1]?.createdAt, id: cachedUsers[cachedUsers.length - 1]?.id }
+                            : null;
+
+                    return res.status(200).json({ success: true, users: cachedUsers, nextCursor });
+                }
+            } catch (error) {
+                logger.warn("Error on fetch data from redis (getConnection)", { error });
             }
         }
 
         //DB QUERY IF REDIS QUERY FAILED
-        [totalCount, connections] = await Promise.all([
-            prisma.connected.count({ where: { userID } }),
-
-            prisma.connected.findMany({
-                where: {
-                    userID,
-                },
-                orderBy:
-                    sort === "recent"
-                        ? {
-                              createdAt: "desc",
-                          }
-                        : {
-                              connectionUser: {
-                                  name: sort,
-                              },
-                          },
-                skip: start - 1,
-                take: count,
-                select: {
-                    connectionUser: {
-                        select: {
-                            id: true,
-                            name: true,
-                            personalData: {
-                                select: {
-                                    thumbnailURL: true,
-                                },
-                            },
+        const connections = await prisma.connected.findMany({
+            where: {
+                userID,
+                OR: [
+                    {
+                        createdAt: {
+                            lt: new Date(cursor.createdAt),
                         },
                     },
+                    {
+                        createdAt: new Date(cursor.createdAt),
+                        id: {
+                            lt: cursor.id,
+                        },
+                    },
+                ],
+            },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+
+            select: {
+                connectionUser: {
+                    select: {
+                        id: true,
+                        name: true,
+                        personalData: {
+                            select: {
+                                thumbnailURL: true,
+                            },
+                        },
+                        createdAt: true,
+                    },
                 },
-            }),
-        ]);
+            },
+        });
+
+        const nextCursor =
+            connections.length === take
+                ? { createdAt: connections[connections.length - 1]?.connectionUser.createdAt, id: connections[connections.length - 1]?.connectionUser.id }
+                : null;
+        const finalUsers = connections.map(c => c.connectionUser);
+
+        //SAVE IN REDIS
+        if (isPageOne) {
+            await redis.set(`userConnection:${userID}`, JSON.stringify(finalUsers), "EX", 60).catch(error => {
+                logger.warn(`Error on saving data in redis (getConnection)`, { error });
+            });
+        }
 
         //CLIENT RESPONSE
-        res.status(200).json({
-            success: true,
-            start,
-            end: start + count - 1,
-            hasAfter: totalCount > start + count - 1,
-            connections,
-        });
-
-        const pipeline = redis.pipeline();
-        pipeline.set(`userConnection:${userID}:${start}:${count}:${sort}`, JSON.stringify(connections), "EX", 60);
-        pipeline.set(`userConnectionCount:${userID}`, totalCount, "EX", 60);
-
-        const pipelineResponse = await pipeline.exec().catch(error => {
-            logger.warn("Error on set user connection and count in redis", { error });
-            return null;
-        });
-
-        if (pipelineResponse)
-            pipelineResponse.forEach(([error, d], index) => {
-                if (error) {
-                    logger.warn(`Error on redis set userConnection on query ${index + 1}`, { error });
-                }
-            });
+        return res.status(200).json({ success: true, users: finalUsers, nextCursor });
     } catch (error) {
-        logger.error("Error on getConnection", { error });
+        logger.error("Error on get connections (getConnection)", { error });
         return next(new BadResponse("Internal server error", 500));
     }
 };

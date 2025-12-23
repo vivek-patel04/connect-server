@@ -9,30 +9,23 @@ export const deleteLike = async (req: Request, res: Response, next: NextFunction
     try {
         const userID = req.user?.userID as string;
         const postID = req.cleanedParams?.postID as string;
-        const likeID = req.cleanedParams.likeID as string;
 
         //DB CALL
-        const LikeCountAfterDeleting = await prisma.$transaction(async tx => {
-            const ok = await tx.like.deleteMany({
-                where: { id: likeID, postID, userID },
-            });
-            if (ok.count === 0) {
-                throw new BadResponse("Invalid ID, resource not found", 404);
-            }
-
-            const totalLike = await tx.like.count({ where: { postID } });
-
-            return totalLike;
+        const ok = await prisma.like.deleteMany({
+            where: { postID, userID },
         });
+        if (ok.count === 0) {
+            throw new BadResponse("Invalid ID, resource not found", 404);
+        }
 
         //CLEAN CACHED DATA
         const pipeline = redis.pipeline();
 
         pipeline.del(`userOwnPosts:${userID}`);
-        pipeline.del(`userConnectionPosts:${userID}`);
+        pipeline.del(`userFeedPosts:${userID}`);
         pipeline.del(`post:${postID}`);
-        pipeline.del(`likeOnPost:${postID}`);
-        pipeline.del(`likeCountOnPost:${postID}`);
+        pipeline.del(`likesOnPost:${postID}`);
+        pipeline.del(`likesCountOnPost:${postID}`);
 
         const pipelineResponse = await pipeline.exec().catch(error => {
             logger.warn("Failed to delete data in redis (deleteLike)", { error });
@@ -46,7 +39,7 @@ export const deleteLike = async (req: Request, res: Response, next: NextFunction
             });
         }
 
-        return res.status(200).json({ success: true, likeCount: LikeCountAfterDeleting });
+        return res.status(200).json({ success: true });
     } catch (error) {
         if (error instanceof BadResponse) {
             return next(new BadResponse(error.message, error.statusCode));

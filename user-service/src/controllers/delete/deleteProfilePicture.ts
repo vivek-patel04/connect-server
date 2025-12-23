@@ -1,9 +1,8 @@
 import { prisma } from "../../config/prismaClient.js";
 import { logger } from "../../utils/logger.js";
-import { cloudinary } from "../../config/cloudinary.js";
 import { BadResponse } from "../../utils/badResponse.js";
 import type { NextFunction, Request, Response } from "express";
-import { generateProfilePictureURL, generateUserThumbnailURL } from "../../utils/generateImageURL.js";
+import { redis } from "../../config/redisClient.js";
 
 export const deleteProfilePicture = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -16,6 +15,10 @@ export const deleteProfilePicture = async (req: Request, res: Response, next: Ne
                 profilePictureURL: "https://res.cloudinary.com/dlxi00sgn/image/upload/v1764397437/USER_PROFILE_PICTURE/default-profile-picture.png",
                 thumbnailURL: "https://res.cloudinary.com/dlxi00sgn/image/upload/v1764417754/USER_PROFILE_PICTURE/default-profile-picture_08c102.jpg",
             },
+        });
+
+        await redis.del(`userProfile:${userID}`).catch(error => {
+            logger.warn("Faiiled to delete profile cache (updateProfilePicture)", { error });
         });
 
         return res.status(200).json({ success: true, profilePictureURL: updated.profilePictureURL, thumbnailURL: updated.thumbnailURL });
