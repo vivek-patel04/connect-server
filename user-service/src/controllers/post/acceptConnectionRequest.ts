@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { BadResponse } from "../../utils/badResponse.js";
 import { prisma } from "../../config/prismaClient.js";
-import { redis } from "../../config/redisClient.js";
+import { publisher, redis } from "../../config/redisClient.js";
 import { logger } from "../../utils/logger.js";
 
 export const acceptConnection = async (req: Request, res: Response, next: NextFunction) => {
@@ -59,7 +59,26 @@ export const acceptConnection = async (req: Request, res: Response, next: NextFu
         }
 
         //RESPONSE TO CLIENT
-        return res.status(200).json({ success: true });
+        res.status(200).json({ success: true });
+
+        //CREATE NOTIFICATION
+        const loggedinName = await prisma.user.findUnique({ where: { id: loggedinUserID }, select: { name: true } });
+        await publisher
+            .publish(
+                "notification",
+                JSON.stringify({
+                    userID: senderUserID,
+                    actorID: loggedinUserID,
+                    type: "ACCEPT-REQUEST",
+                    message: loggedinName?.name ? `${loggedinName.name} accepted your connection request` : "You have a new connection",
+                    entityType: "USER",
+                    entityID: null,
+                    childEntityID: null,
+                })
+            )
+            .catch(error => {
+                logger.error("Error on creating notification (acceptConnectionRequest)", { error });
+            });
     } catch (error) {
         if (error instanceof BadResponse) {
             return next(error);

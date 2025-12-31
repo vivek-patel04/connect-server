@@ -1,0 +1,10 @@
+log
+node_modules
+dist
+.dockerignore
+.env
+.env.example
+.gitignore
+.git
+.prettierrc
+Dockerfile

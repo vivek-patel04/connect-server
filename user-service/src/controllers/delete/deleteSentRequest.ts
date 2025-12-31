@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { BadResponse } from "../../utils/badResponse.js";
 import { prisma } from "../../config/prismaClient.js";
-import { redis } from "../../config/redisClient.js";
+import { publisher, redis } from "../../config/redisClient.js";
 import { logger } from "../../utils/logger.js";
 
 export const deleteSentRequest = async (req: Request, res: Response, next: NextFunction) => {
@@ -42,7 +42,25 @@ export const deleteSentRequest = async (req: Request, res: Response, next: NextF
         }
 
         //RESPONSE TO CLIENT
-        return res.status(200).json({ success: true });
+        res.status(200).json({ success: true });
+
+        //DELETE NOTIFICATION
+        await publisher
+            .publish(
+                "notification",
+                JSON.stringify({
+                    userID: receiverUserID,
+                    actorID: loggedinUserID,
+                    type: "CANCEL-REQUEST",
+                    message: "",
+                    entityType: "USER",
+                    entityID: null,
+                    childEntityID: null,
+                })
+            )
+            .catch(error => {
+                logger.error("Error on creating notification (deleteSentRequest)", { error });
+            });
     } catch (error: any) {
         return next(new BadResponse("Internal Server Error", 500));
     }

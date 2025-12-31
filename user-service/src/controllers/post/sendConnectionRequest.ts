@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/prismaClient.js";
 import { BadResponse } from "../../utils/badResponse.js";
-import { redis } from "../../config/redisClient.js";
+import { publisher, redis } from "../../config/redisClient.js";
 import { logger } from "../../utils/logger.js";
 
 export const sendConnection = async (req: Request, res: Response, next: NextFunction) => {
@@ -21,8 +21,15 @@ export const sendConnection = async (req: Request, res: Response, next: NextFunc
             pair = `${receiverUserID}:${senderUserID}`;
         }
 
-        await prisma.connection.create({
+        const ok = await prisma.connection.create({
             data: { senderID: senderUserID, receiverID: receiverUserID, pair },
+            select: {
+                sender: {
+                    select: {
+                        name: true,
+                    },
+                },
+            },
         });
 
         //REDIS CLEAN UP
@@ -49,7 +56,25 @@ export const sendConnection = async (req: Request, res: Response, next: NextFunc
         }
 
         //RESPONSE TO CLIENT
-        return res.status(200).json({ success: true });
+        res.status(200).json({ success: true });
+
+        //CREATE NOTIFICATION
+        await publisher
+            .publish(
+                "notification",
+                JSON.stringify({
+                    userID: receiverUserID,
+                    actorID: senderUserID,
+                    type: "SENT-REQUEST",
+                    message: `${ok.sender.name} sent you a connection request`,
+                    entityType: "USER",
+                    entityID: null,
+                    childEntityID: null,
+                })
+            )
+            .catch(error => {
+                logger.error("Error on creating notification (sendConnectionRequest)", { error });
+            });
     } catch (error: any) {
         if (error.code === "P2002") {
             return next(new BadResponse("Request or connection already exist", 400));

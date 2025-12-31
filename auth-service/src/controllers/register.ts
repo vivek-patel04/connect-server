@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import crypto from "node:crypto";
-import { redis } from "../config/redisClient.js";
+import { publisher, redis } from "../config/redisClient.js";
 import { logger } from "../utils/logger.js";
 import { BadResponse } from "../utils/BadResponse.js";
 import { userRegistration } from "../grpc/grpcCall.js";
@@ -68,8 +68,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
             return next(new BadResponse("Internal server error", 500));
         }
 
-        return res
-            .status(201)
+        res.status(201)
             .cookie("accessToken", accessToken, {
                 httpOnly: true,
                 sameSite: "lax",
@@ -95,6 +94,24 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
             .json({
                 success: true,
                 message: "Successfully user registered",
+            });
+
+        //CREATE NOTIFICATION
+        await publisher
+            .publish(
+                "notification",
+                JSON.stringify({
+                    userID,
+                    actorID: userID,
+                    type: "PROFILE",
+                    message: "Successfully user registered, Please complete your profile",
+                    entityType: "USER",
+                    entityID: null,
+                    childEntityID: null,
+                })
+            )
+            .catch(error => {
+                logger.error("Error on creating notification (register)", { error });
             });
     } catch (error: any) {
         logger.error("Error on user registration (register)", { error });

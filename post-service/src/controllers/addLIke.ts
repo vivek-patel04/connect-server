@@ -1,4 +1,4 @@
-import { redis } from "../config/redisConfig.js";
+import { publisher, redis } from "../config/redisConfig.js";
 import { prisma } from "../config/prismaConfig.js";
 import { logger } from "../utils/logger.js";
 import { BadResponse } from "../utils/badResponse.js";
@@ -27,11 +27,13 @@ export const addLike = async (req: Request, res: Response, next: NextFunction) =
         const user = grpcResponse.user;
 
         //DB CALL
-
         const ok = await prisma.like.create({
             data: {
                 postID,
                 userID,
+            },
+            select: {
+                post: { select: { userID: true } },
             },
         });
 
@@ -56,7 +58,27 @@ export const addLike = async (req: Request, res: Response, next: NextFunction) =
             });
         }
 
-        return res.status(200).json({ success: true });
+        res.status(200).json({ success: true });
+
+        //CREATE NOTIFICATION
+        if (ok.post.userID !== userID) {
+            await publisher
+                .publish(
+                    "notification",
+                    JSON.stringify({
+                        userID: ok.post.userID,
+                        actorID: userID,
+                        type: "ADD-LIKE",
+                        message: `${user.name} liked your post`,
+                        entityType: "POST",
+                        entityID: postID,
+                        childEntityID: null,
+                    })
+                )
+                .catch(error => {
+                    logger.error("Error on creating notification (addLike)", { error });
+                });
+        }
     } catch (error: any) {
         if (error.code === "P2003") {
             return next(new BadResponse("Post not found", 404));

@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/prismaConfig.js";
 import { BadResponse } from "../utils/badResponse.js";
 import { logger } from "../utils/logger.js";
-import { redis } from "../config/redisConfig.js";
+import { publisher, redis } from "../config/redisConfig.js";
 
 export const deleteComment = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -16,6 +16,7 @@ export const deleteComment = async (req: Request, res: Response, next: NextFunct
         const ok = await prisma.comment.deleteMany({
             where: { id: commentID, postID, userID },
         });
+
         if (ok.count === 0) {
             return next(new BadResponse("Invalid ID, resource not found", 404));
         }
@@ -41,7 +42,24 @@ export const deleteComment = async (req: Request, res: Response, next: NextFunct
             });
         }
 
-        return res.status(200).json({ success: true });
+        res.status(200).json({ success: true });
+
+        //PUBLISH A DELETE NOTIFICATION EVENT
+        await publisher
+            .publish(
+                "notification",
+                JSON.stringify({
+                    actorID: userID,
+                    type: "DELETE-COMMENT",
+                    message: "",
+                    entityType: "POST",
+                    entityID: postID,
+                    childEntityID: commentID,
+                })
+            )
+            .catch(error => {
+                logger.error("Error on creating notification (deleteComment)", { error });
+            });
     } catch (error) {
         logger.error("Error on deleting post (deleteComment)", { error });
         return next(new BadResponse("Internal server error", 500));

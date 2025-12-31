@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/prismaConfig.js";
 import { BadResponse } from "../utils/badResponse.js";
-import { redis } from "../config/redisConfig.js";
+import { publisher, redis } from "../config/redisConfig.js";
 import { logger } from "../utils/logger.js";
 
 export const deleteLike = async (req: Request, res: Response, next: NextFunction) => {
@@ -11,12 +11,19 @@ export const deleteLike = async (req: Request, res: Response, next: NextFunction
         const postID = req.cleanedParams?.postID as string;
 
         //DB CALL
-        const ok = await prisma.like.deleteMany({
-            where: { postID, userID },
+        const ok = await prisma.like.delete({
+            where: {
+                postID_userID: {
+                    postID,
+                    userID,
+                },
+            },
+            select: {
+                post: {
+                    select: { userID: true },
+                },
+            },
         });
-        if (ok.count === 0) {
-            throw new BadResponse("Invalid ID, resource not found", 404);
-        }
 
         //CLEAN CACHED DATA
         const pipeline = redis.pipeline();
@@ -39,10 +46,29 @@ export const deleteLike = async (req: Request, res: Response, next: NextFunction
             });
         }
 
-        return res.status(200).json({ success: true });
-    } catch (error) {
-        if (error instanceof BadResponse) {
-            return next(new BadResponse(error.message, error.statusCode));
+        res.status(200).json({ success: true });
+
+        //PUBLISH A DELETE NOTIFICATION EVENT
+        if (ok.post.userID !== userID) {
+            await publisher
+                .publish(
+                    "notification",
+                    JSON.stringify({
+                        actorID: userID,
+                        type: "DELETE-LIKE",
+                        message: "",
+                        entityType: "POST",
+                        entityID: postID,
+                        childEntityID: null,
+                    })
+                )
+                .catch(error => {
+                    logger.error("Error on creating notification (deleteLike)", { error });
+                });
+        }
+    } catch (error: any) {
+        if (error.code === "P2025") {
+            return next(new BadResponse("Invalid ID, resource not found", 404));
         }
         logger.error("Error on deleting post (deleteLike)", { error });
         return next(new BadResponse("Internal server error", 500));

@@ -1,4 +1,4 @@
-import { redis } from "../config/redisConfig.js";
+import { publisher, redis } from "../config/redisConfig.js";
 import { prisma } from "../config/prismaConfig.js";
 import { logger } from "../utils/logger.js";
 import { BadResponse } from "../utils/badResponse.js";
@@ -35,6 +35,11 @@ export const addComment = async (req: Request, res: Response, next: NextFunction
                 postID,
                 userID,
             },
+            include: {
+                post: {
+                    select: { userID: true },
+                },
+            },
         });
 
         const newCommentWithUserData = { ...newComment, user };
@@ -60,7 +65,27 @@ export const addComment = async (req: Request, res: Response, next: NextFunction
             });
         }
 
-        return res.status(200).json({ success: true, comment: newCommentWithUserData });
+        res.status(200).json({ success: true, comment: newCommentWithUserData });
+
+        //CREATE NOTIFICATION
+        if (newComment.post.userID !== userID) {
+            await publisher
+                .publish(
+                    "notification",
+                    JSON.stringify({
+                        userID: newComment.post.userID,
+                        actorID: userID,
+                        type: "ADD-COMMENT",
+                        message: `${user.name} commented on your post`,
+                        entityType: "POST",
+                        entityID: postID,
+                        childEntityID: newComment.id,
+                    })
+                )
+                .catch(error => {
+                    logger.error("Error on creating notification (addComment)", { error });
+                });
+        }
     } catch (error: any) {
         if (error.code === "P2003") {
             return next(new BadResponse("Post not found", 404));
